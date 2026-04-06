@@ -71,10 +71,7 @@ def handle_missing_and_impute(df):
     print(f"    -> Kích thước sau lọc và điền khuyết: {df_imputed.shape}")
     return df_imputed
 
-def process_standard_omics(folder_path, omics_name):
-    """
-    Luồng xử lý chung cho Gene và miRNA
-    """
+def process_standard_omics(folder_path, omics_name, protein_coding_list=None):
     print(f"\n[BẮT ĐẦU XỬ LÝ {omics_name.upper()}]")
     file_paths = glob.glob(os.path.join(folder_path, "*.tsv"))
     df_list = []
@@ -83,10 +80,17 @@ def process_standard_omics(folder_path, omics_name):
         df_list.append(clean_and_transpose(file))
         
     print(f"  => Đang gộp {len(df_list)} file và lấy giao thoa đặc trưng...")
-    # join='inner' ép Pandas chỉ giữ lại các Cột (Gen/miRNA) chung nhất giữa 4 loại ung thư
     master_df = pd.concat(df_list, axis=0, join='inner')
     
-    # Xử lý missing values trên ma trận tổng
+    # --- MỚI: BỘ LỌC PROTEIN CODING CHO GENE ---
+    if omics_name.lower() == 'gene' and protein_coding_list is not None:
+        print(f"  => Đang lọc Protein-coding genes...")
+        # Lấy giao thoa giữa các cột hiện có và danh sách protein-coding
+        valid_genes = master_df.columns.intersection(protein_coding_list)
+        master_df = master_df[valid_genes]
+        print(f"  => Còn lại {len(valid_genes)} đặc trưng sau lọc sinh học.")
+    # -------------------------------------------
+
     final_df = handle_missing_and_impute(master_df)
     return final_df
 
@@ -114,16 +118,24 @@ def process_methylation(methyl_folder_path):
     return final_df
 
 if __name__ == "__main__":
-    # KHAI BÁO ĐƯỜNG DẪN THƯ MỤC
-    BASE_DIR = r"D:\ĐATN\MoXGATE\data_original\multi_omics"
-    OUT_DIR = r"D:\ĐATN\MoXGATE\data_processed"
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input_dir', type=str, required=True)
+    parser.add_argument('--output_dir', type=str, required=True)
+    # Thêm tham số cho file GTF
+    parser.add_argument('--gtf_path', type=str, default=None) 
+    args = parser.parse_args()
     
-    # Tạo thư mục output nếu chưa tồn tại
-    os.makedirs(OUT_DIR, exist_ok=True)
+    BASE_DIR = args.input_dir
+    OUT_DIR = args.output_dir
     
-    # 1. Xử lý Gene
+    # 0. Đọc danh sách Protein Coding trước (nếu có file GTF)
+    pc_list = None
+    if args.gtf_path:
+        pc_list = get_protein_coding_list(args.gtf_path)
+    
+    # 1. Xử lý Gene (Truyền pc_list vào)
     gene_path = os.path.join(BASE_DIR, "gene")
-    df_gene = process_standard_omics(gene_path, "Gene")
+    df_gene = process_standard_omics(gene_path, "Gene", protein_coding_list=pc_list)
     df_gene.to_csv(os.path.join(OUT_DIR, "processed_gene.csv"))
     
     # 2. Xử lý miRNA

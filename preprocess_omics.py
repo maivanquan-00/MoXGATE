@@ -2,6 +2,35 @@ import pandas as pd
 import os
 import glob
 
+import re
+
+def get_protein_coding_list(gtf_path):
+    """
+    Trích xuất danh sách Gene Symbols mã hóa protein từ file GENCODE GTF.
+    Sử dụng streaming để tiết kiệm RAM.
+    """
+    print(f" -> Đang quét file GTF để tìm gen mã hóa protein: {os.path.basename(gtf_path)}")
+    protein_coding_genes = set()
+    
+    # Sử dụng Regex để bắt gene_name và gene_type nhanh hơn
+    # GENCODE v36 format: gene_type "protein_coding"; ... gene_name "TP53";
+    with open(gtf_path, 'r') as f:
+        for line in f:
+            if line.startswith('#'): continue # Bỏ qua dòng chú thích
+            
+            # Chỉ xét các dòng định nghĩa 'gene' để tăng tốc
+            parts = line.split('\t')
+            if len(parts) > 2 and parts[2] == 'gene':
+                attributes = parts[8]
+                if 'gene_type "protein_coding"' in attributes:
+                    # Tìm gene_name trong chuỗi attributes
+                    match = re.search(r'gene_name "([^"]+)"', attributes)
+                    if match:
+                        protein_coding_genes.add(match.group(1))
+                        
+    print(f" -> Đã tìm thấy {len(protein_coding_genes)} gen mã hóa protein trong GENCODE.")
+    return list(protein_coding_genes)
+
 def clean_and_transpose(file_path):
     """
     Đọc 1 file TSV Omics: Lọc u nguyên phát (-01), gọt ID và chuyển vị ma trận.

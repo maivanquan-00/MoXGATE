@@ -24,9 +24,13 @@ def get_protein_coding_list(gtf_path):
                 attributes = parts[8]
                 if 'gene_type "protein_coding"' in attributes:
                     # Tìm gene_name trong chuỗi attributes
-                    match = re.search(r'gene_name "([^"]+)"', attributes)
+                    # Đổi từ gene_name sang gene_id
+                    match = re.search(r'gene_id "([^"]+)"', attributes)
                     if match:
-                        protein_coding_genes.add(match.group(1))
+                        raw_id = match.group(1) # Lấy được "ENSG00000141510.16"
+                        # Gọt bỏ phần đuôi thập phân (phiên bản), chỉ giữ lại phần gốc
+                        clean_id = raw_id.split('.')[0] 
+                        protein_coding_genes.add(clean_id)
                         
     print(f" -> Đã tìm thấy {len(protein_coding_genes)} gen mã hóa protein trong GENCODE.")
     return list(protein_coding_genes)
@@ -82,10 +86,13 @@ def process_standard_omics(folder_path, omics_name, protein_coding_list=None):
     print(f"  => Đang gộp {len(df_list)} file và lấy giao thoa đặc trưng...")
     master_df = pd.concat(df_list, axis=0, join='inner')
     
-    # --- MỚI: BỘ LỌC PROTEIN CODING CHO GENE ---
+# --- MỚI: BỘ LỌC PROTEIN CODING CHO GENE ---
     if omics_name.lower() == 'gene' and protein_coding_list is not None:
-        print(f"  => Đang lọc Protein-coding genes...")
-        # Lấy giao thoa giữa các cột hiện có và danh sách protein-coding
+        print(f"  => Đang chuẩn hóa định dạng ID gen (gọt đuôi version)...")
+        # Chuyển đổi tên cột: 'ENSG00000141510.11' -> 'ENSG00000141510'
+        master_df.columns = [str(col).split('.')[0] for col in master_df.columns]
+        
+        print(f"  => Đang lấy giao thoa với Protein-coding genes...")
         valid_genes = master_df.columns.intersection(protein_coding_list)
         master_df = master_df[valid_genes]
         print(f"  => Còn lại {len(valid_genes)} đặc trưng sau lọc sinh học.")

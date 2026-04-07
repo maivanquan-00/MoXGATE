@@ -45,7 +45,7 @@ import pandas as pd
 # 1. TẢI VÀ ĐỌC WHITELIST miRBase v20
 # ─────────────────────────────────────────────
 
-MIRBASE_V20_HAIRPIN_URL = "https://mirbase.org/ftp/20/hairpin.fa.gz"
+MIRBASE_V20_HAIRPIN_URL = "https://mirbase.org/download/hairpin.fa"
 MIRBASE_V20_HAIRPIN_FALLBACK = "https://github.com/antass/mirbase-archive/raw/main/v20/hairpin.fa.gz"
 
 

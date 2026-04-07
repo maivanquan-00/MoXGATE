@@ -70,7 +70,7 @@ def load_cross_reactive_probes(cross_reactive_path: str) -> set:
         print("[CpG]  ⚠ Không tìm thấy file cross-reactive probes → bỏ qua bước lọc này")
         return set()
 
-    df = pd.read_csv(cross_reactive_path, header=None, comment='#')
+    df = pd.read_csv(cross_reactive_path, header=None, comment='#', sep='\t')
     probes = set(df.iloc[:, 0].astype(str).str.strip().tolist())
     print(f"[CpG]  ✓ Đọc {len(probes):,} cross-reactive probes")
     return probes

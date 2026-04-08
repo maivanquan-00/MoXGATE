@@ -338,8 +338,13 @@ def process_cpg(
     print(f"\n[CpG]  Tìm thấy {len(path_27k)} file 27k + {len(path_450k)} file 450k "
           f"= {len(file_paths)} file tổng cộng")
 
+    # Xử lý 27k TRƯỚC, 450k SAU — đảm bảo khi dedup thì 450k (last) được giữ
     df_list = []
-    for fp in sorted(file_paths):
+    for fp in sorted(path_27k):
+        df_cancer = clean_and_transpose(fp)
+        if not df_cancer.empty:
+            df_list.append(df_cancer)
+    for fp in sorted(path_450k):
         df_cancer = clean_and_transpose(fp)
         if not df_cancer.empty:
             df_list.append(df_cancer)
@@ -347,12 +352,21 @@ def process_cpg(
     if not df_list:
         raise ValueError("Tất cả file đều rỗng sau khi xử lý. Kiểm tra lại định dạng TSV.")
 
-    # ── Bước 2: Gộp tất cả file ─────────────────────────────────────────
+    # ── Bước 2: Gộp tất cả file ───────────────────────────────────────────────────
     # join='inner': tự động lấy giao thoa CpG sites
     # Vì 27k là tập con của 450k, kết quả sẽ thu về ~27k sites chung
     print(f"\n[CpG]  Bước 2 — Gộp {len(df_list)} file (join='inner')...")
     master_df = pd.concat(df_list, axis=0, join='inner')
     print(f"[CpG]  Sau khi gộp: {master_df.shape} (Bệnh nhân × CpG sites, ~27k chung)")
+
+    # Loại bắt kỳ bệnh nhân xuất hiện cả trong 27k lẫn 450k — giữ bản 450k (last)
+    n_dup = master_df.index.duplicated().sum()
+    if n_dup > 0:
+        dup_ids = master_df.index[master_df.index.duplicated(keep=False)].unique()
+        print(f"[CpG]  ⚠ {len(dup_ids)} bệnh nhân có cả 27k lẫn 450k → giữ bản 450k:")
+        for pid in sorted(dup_ids):
+            print(f"[CpG]       - {pid}")
+        master_df = master_df[~master_df.index.duplicated(keep='last')]
 
     # ── Bước 3: Lọc probes không đáng tin cậy ──────────────────────────
     master_df = filter_unreliable_probes(master_df, cross_reactive, sex_chr_probes)

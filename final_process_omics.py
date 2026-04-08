@@ -95,6 +95,20 @@ def filter_by_labels(omics_path: str, labeled_patients: pd.Index, name: str) -> 
     df = pd.read_csv(omics_path, index_col=0)
     print(f"[Final]   Shape gốc: {df.shape} (Bệnh nhân × Features)")
 
+    # Kiểm tra Patient ID trùng lặp
+    dup_mask = df.index.duplicated(keep=False)
+    if dup_mask.any():
+        dup_ids = df.index[dup_mask].unique().tolist()
+        for pid in dup_ids:
+            rows = df.loc[pid]
+            if rows.duplicated().any() or (rows.iloc[0] == rows.iloc[1]).all():
+                # 2 hàng giống hệt nhau → bỏ 1 không sao
+                print(f"[Final]   ⚠ '{pid}' xuất hiện 2 lần nhưng dữ liệu GIỐNG NHAU → bỏ bản sao")
+            else:
+                # 2 hàng khác nhau → cần điều tra trong file preprocess
+                print(f"[Final]   ✗ '{pid}' xuất hiện 2 lần với dữ liệu KHÁC NHAU → giữ lần đầu (cần kiểm tra {name}!)")
+        df = df[~df.index.duplicated(keep='first')]
+
     # Lấy giao: bệnh nhân vừa có trong omics vừa có nhãn
     common = df.index.intersection(labeled_patients)
     df_filtered = df.loc[common]

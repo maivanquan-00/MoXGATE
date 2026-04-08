@@ -76,25 +76,44 @@ import pandas as pd
 
 def load_cross_reactive_probes(cross_reactive_path: str) -> set:
     """
-    Bước 0a — Đọc danh sách cross-reactive probes (Chen et al. 2013).
+    Bước 0a — Đọc cross-reactive probes từ file annotation Chen et al. 2013.
 
-    Cross-reactive probes: các probe bám vào nhiều vị trí trên genome
-    → đọc tín hiệu methylation sai vị trí → cần loại bỏ.
-    File thường là 1 cột probe ID (cg...), có thể có header.
+    File có định dạng TSV với header, các dòng bắt đầu '#' là metadata.
+    Cột đầu là probe ID (IlmnID / ID), và 2 cột quan trọng:
+        - AlleleA_Hits: số vị trí AlleleA bám vào in silico
+        - AlleleB_Hits: số vị trí AlleleB bám vào in silico
+
+    Probe cross-reactive khi AlleleA_Hits > 1 HOẶC AlleleB_Hits > 1
+    (bám vào nhiều hơn 1 vị trí → đọc methylation sai locus)
 
     Args:
-        cross_reactive_path: Đường dẫn file txt/csv chứa probe IDs.
+        cross_reactive_path: Đường dẫn file annotation Chen et al. 2013 (TSV).
 
     Returns:
-        Set các probe ID cần loại bỏ.
+        Set các probe ID cross-reactive cần loại bỏ.
     """
     if not cross_reactive_path or not os.path.exists(cross_reactive_path):
         print("[CpG]  ⚠ Không tìm thấy file cross-reactive probes → bỏ qua bước 3a")
         return set()
 
-    df = pd.read_csv(cross_reactive_path, header=None, comment='#', sep='\t')
-    probes = set(df.iloc[:, 0].astype(str).str.strip().tolist())
-    print(f"[CpG]  ✓ Bước 0a: Đọc {len(probes):,} cross-reactive probes (Chen et al. 2013)")
+    # Đọc file: bỏ dòng comment (#), dòng đầu tiên sau comment là header
+    df = pd.read_csv(cross_reactive_path, comment='#', sep='\t', low_memory=False)
+
+    # Cột probe ID: thường là 'ID' hoặc 'IlmnID' (cột đầu tiên)
+    id_col = df.columns[0]
+
+    # Lọc cross-reactive: AlleleA_Hits > 1 HOẶC AlleleB_Hits > 1
+    if 'AlleleA_Hits' in df.columns and 'AlleleB_Hits' in df.columns:
+        mask = (df['AlleleA_Hits'] > 1) | (df['AlleleB_Hits'] > 1)
+        probes = set(df.loc[mask, id_col].astype(str).str.strip().tolist())
+        print(f"[CpG]  ✓ Bước 0a: {len(probes):,} cross-reactive probes "
+              f"(AlleleA_Hits>1 hoặc AlleleB_Hits>1, từ {len(df):,} probes tổng)")
+    else:
+        # Fallback: nếu không có cột Hits → coi tất cả là danh sách probe cần loại
+        probes = set(df.iloc[:, 0].astype(str).str.strip().tolist())
+        print(f"[CpG]  ⚠ Bước 0a: Không tìm thấy cột AlleleA/B_Hits → "
+              f"dùng toàn bộ {len(probes):,} probe ID (cột đầu tiên)")
+
     return probes
 
 

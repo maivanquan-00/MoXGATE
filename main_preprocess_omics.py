@@ -71,12 +71,15 @@ Kết quả kỳ vọng:
     processed_methylation.csv → ~(1255, 23381)
 """
 
+import os
 import argparse
 import time
 
-from preprocess_Gene  import process_gene
-from preprocess_miRNA import process_mirna
-from preprocess_CpG   import process_cpg
+from preprocess_Gene   import process_gene
+from preprocess_miRNA  import process_mirna
+from preprocess_CpG    import process_cpg
+from preprocess_labels import process_clinical_labels
+from final_process_omics import final_process
 
 
 # ─────────────────────────────────────────────
@@ -96,7 +99,15 @@ def parse_args():
     )
     parser.add_argument(
         "--output_dir", type=str, required=True,
-        help="Thư mục lưu các file CSV đã xử lý"
+        help="Thư mục lưu các file CSV đã xử lý (processed_*.csv và clean_labels.csv)"
+    )
+    parser.add_argument(
+        "--final_dir", type=str, required=True,
+        help="Thư mục lưu kết quả cuối (final_*.csv)"
+    )
+    parser.add_argument(
+        "--subtype_dir", type=str, required=True,
+        help="Thư mục chứa các file TSV clinical/subtype"
     )
     parser.add_argument(
         "--gtf_path", type=str, required=True,
@@ -113,12 +124,11 @@ def parse_args():
         help="(Tùy chọn) Illumina 450k manifest CSV — dùng để lọc chrX/Y cho CpG"
     )
 
-    # Chạy riêng từng omics
-    parser.add_argument(
-        "--only", type=str, default=None,
-        choices=["gene", "mirna", "cpg"],
-        help="Chỉ chạy 1 omics cụ thể. Mặc định: chạy cả 3"
-    )
+    # Flags skip từng bước (khi file đã có sẵn)
+    parser.add_argument("--skip_gene",   action="store_true", help="Bỏ qua bước xử lý Gene (dùng file cũ)")
+    parser.add_argument("--skip_mirna",  action="store_true", help="Bỏ qua bước xử lý miRNA (dùng file cũ)")
+    parser.add_argument("--skip_cpg",    action="store_true", help="Bỏ qua bước xử lý CpG (dùng file cũ)")
+    parser.add_argument("--skip_labels", action="store_true", help="Bỏ qua bước xử lý labels (dùng file cũ)")
 
     return parser.parse_args()
 
@@ -135,77 +145,86 @@ def main():
     print("★"*60)
     print(f"  input_dir  : {args.input_dir}")
     print(f"  output_dir : {args.output_dir}")
-    print(f"  gtf_path   : {args.gtf_path}")
-    if args.cross_reactive_path:
-        print(f"  cross_react: {args.cross_reactive_path}")
-    if args.manifest_path:
-        print(f"  manifest   : {args.manifest_path}")
-    if args.only:
-        print(f"  only       : {args.only}")
+    print(f"  final_dir  : {args.final_dir}")
+    print(f"  subtype_dir: {args.subtype_dir}")
+    skipped = [k for k, v in [("gene", args.skip_gene), ("mirna", args.skip_mirna),
+                               ("cpg", args.skip_cpg), ("labels", args.skip_labels)] if v]
+    if skipped:
+        print(f"  skip       : {', '.join(skipped)}")
     print("★"*60)
 
     total_start = time.time()
     results = {}
 
-    run_all = args.only is None
-
-    # ── 1. GENE ──────────────────────────────
-    if run_all or args.only == "gene":
+    # ── 1. GENE ──────────────────────────────────────────────────────────
+    if not args.skip_gene:
         t0 = time.time()
-        df_gene = process_gene(
+        df = process_gene(
             input_dir=args.input_dir,
             output_dir=args.output_dir,
             gtf_path=args.gtf_path,
         )
-        results["gene"] = df_gene.shape
+        results["Gene"] = df.shape
         print(f"  ⏱ Gene xử lý xong trong {time.time()-t0:.1f}s\n")
+    else:
+        print("  [skip] Gene — dùng processed_gene.csv cũ\n")
 
-    # ── 2. miRNA ─────────────────────────────
-    if run_all or args.only == "mirna":
+    # ── 2. miRNA ──────────────────────────────────────────────────────────
+    if not args.skip_mirna:
         t0 = time.time()
-        df_mirna = process_mirna(
+        df = process_mirna(
             input_dir=args.input_dir,
             output_dir=args.output_dir,
         )
-        results["mirna"] = df_mirna.shape
+        results["miRNA"] = df.shape
         print(f"  ⏱ miRNA xử lý xong trong {time.time()-t0:.1f}s\n")
+    else:
+        print("  [skip] miRNA — dùng processed_mirna.csv cũ\n")
 
-    # ── 3. CpG (Methylation) ─────────────────
-    if run_all or args.only == "cpg":
+    # ── 3. CpG (Methylation) ──────────────────────────────────────────────
+    if not args.skip_cpg:
         t0 = time.time()
-        df_cpg = process_cpg(
+        df = process_cpg(
             input_dir=args.input_dir,
             output_dir=args.output_dir,
             cross_reactive_path=args.cross_reactive_path,
             manifest_path=args.manifest_path,
         )
-        results["cpg"] = df_cpg.shape
+        results["CpG"] = df.shape
         print(f"  ⏱ CpG xử lý xong trong {time.time()-t0:.1f}s\n")
+    else:
+        print("  [skip] CpG — dùng processed_methylation.csv cũ\n")
 
-    # ── TỔNG KẾT ─────────────────────────────
+    # ── 4. LABELS ─────────────────────────────────────────────────────────
+    if not args.skip_labels:
+        t0 = time.time()
+        labels_df = process_clinical_labels(args.subtype_dir)
+        os.makedirs(args.output_dir, exist_ok=True)
+        labels_path = os.path.join(args.output_dir, "clean_labels.csv")
+        labels_df.to_csv(labels_path, index=False)
+        results["Labels"] = labels_df.shape
+        print(f"  ⏱ Labels xử lý xong trong {time.time()-t0:.1f}s\n")
+    else:
+        print("  [skip] Labels — dùng clean_labels.csv cũ\n")
+        labels_path = os.path.join(args.output_dir, "clean_labels.csv")
+
+    # ── 5. FINAL MERGE ────────────────────────────────────────────────────
+    t0 = time.time()
+    final_process(
+        processed_dir=args.output_dir,
+        labels_path=labels_path,
+        output_dir=args.final_dir,
+    )
+    print(f"  ⏱ Final merge xong trong {time.time()-t0:.1f}s\n")
+
+    # ── TỔNG KẾT ─────────────────────────────────────────────────────────
     elapsed = time.time() - total_start
     print("\n" + "★"*60)
     print("  HOÀN TẤT! Tổng kết quả:")
     print("─"*60)
-
-    expected = {
-        "gene":  "(~1220, ~20530)",
-        "mirna": "(~1225,   ~746)",
-        "cpg":   "(~1255, ~23381)",
-    }
-    label = {
-        "gene":  "Gene Expression   → processed_gene.csv",
-        "mirna": "miRNA Expression  → processed_mirna.csv",
-        "cpg":   "DNA Methylation   → processed_methylation.csv",
-    }
-
-    for key, shape in results.items():
-        print(f"  {label[key]}")
-        print(f"      Shape thực tế : {shape}")
-        print(f"      Kỳ vọng paper : {expected[key]}")
-        print()
-
-    print(f"  ⏱ Tổng thời gian: {elapsed/60:.1f} phút")
+    for name, shape in results.items():
+        print(f"  {name:8s}: {shape}")
+    print(f"\n  ⏱ Tổng thời gian: {elapsed/60:.1f} phút")
     print("★"*60)
 
 

@@ -1,11 +1,16 @@
 """
 preprocess_Gene.py
 ==================
-Xử lý dữ liệu Gene Expression (STAR counts) từ TCGA GDC cho GIAC dataset.
+Xử lý dữ liệu Gene Expression (STAR - TPM) từ TCGA GDC cho GIAC dataset.
 
 Nguồn dữ liệu:
-    GDC TCGA Harmonized — STAR - Counts
+    GDC TCGA Harmonized — STAR - TPM
     (COAD n=514, ESCA n=198, READ n=177, STAD n=477 — trước khi lọc -01)
+
+TPM (Transcripts Per Million) đã chuẩn hoá cho:
+    - Chiều dài gene (gene dài không inflated hơn gene ngắn)
+    - Sequencing depth (sample nào đọc sâu hơn không được lợi thế)
+    → So sánh giữa các sample được chính xác hơn FPKM
 
 Pipeline:
     ┌─────────────────────────────────────────────────────────────────┐
@@ -22,8 +27,8 @@ Pipeline:
     │   2d. Loại bỏ bệnh nhân trùng lặp (giữ Vial A = first)          │
     │   2e. Transpose → (Bệnh nhân × Genes)                           │
     │   2f. Log2(x+1) normalization                                   │
-    │       STAR cho raw counts → cần normalize trước khi dùng ML     │
-    │       log2(x+1): +1 để tránh log(0); chuẩn trong RNA-seq        │
+    │       TPM vẫn lệch phải (skewed) → log2 nén phân phối           │
+    │       log2(x+1): +1 để tránh log(0) với gene không biểu hiện   │
     ├─────────────────────────────────────────────────────────────────┤
     │ BƯỚC 3 — Gộp 4 cancer types                                     │
     │   pd.concat(join='inner') → chỉ giữ genes có ở tất cả cohorts   │
@@ -110,10 +115,10 @@ def get_protein_coding_genes(gtf_path: str) -> set:
 
 def clean_and_transpose(file_path: str, coding_genes: set) -> pd.DataFrame:
     """
-    Đọc 1 file TSV gene expression (STAR raw counts, dạng matrix):
+    Đọc 1 file TSV gene expression (STAR - TPM, dạng matrix):
         - Rows: Ensembl gene ID có version (ENSG00000000003.15)
         - Cols: TCGA barcodes đầy đủ (TCGA-DC-6683-01A-11R-...)
-        - Values: raw read counts (integer)
+        - Values: TPM (Transcripts Per Million) — float
 
     Pipeline:
         2a. Lọc protein-coding genes theo GTF annotation
@@ -128,7 +133,7 @@ def clean_and_transpose(file_path: str, coding_genes: set) -> pd.DataFrame:
         coding_genes: Set Ensembl gene ID protein-coding (có version).
 
     Returns:
-        DataFrame shape (n_patients, n_coding_genes), đã log2(x+1) normalize.
+        DataFrame shape (n_patients, n_coding_genes), đã log2(TPM+1) normalize.
     """
     cancer_name = os.path.basename(file_path)
     print(f"  -> Đọc: {cancer_name}")
@@ -162,10 +167,10 @@ def clean_and_transpose(file_path: str, coding_genes: set) -> pd.DataFrame:
     # --- Bước 2e: Transpose → (Bệnh nhân × Genes) ---
     df_t = df_tumor.T
 
-    # --- Bước 2f: Log2(x+1) normalization ---
-    # STAR counts là raw integer counts → phân phối rất lệch (skewed)
+    # --- Bước 2f: Log2(TPM+1) normalization ---
+    # TPM đã chuẩn hoá chiều dài gene và sequencing depth
+    # Nhưng phân phối vẫn rất lệch phải (0 → hàng nghìn) → log2 nén lại
     # log2(x+1): +1 tránh log(0) với gene không biểu hiện
-    # Kết quả: phân phối gần normal hơn, phù hợp cho downstream ML/DL
     df_t = np.log2(df_t + 1)
 
     return df_t
@@ -222,7 +227,7 @@ def process_gene(input_dir: str, output_dir: str, gtf_path: str) -> pd.DataFrame
         DataFrame hoàn chỉnh (Bệnh nhân × Genes), đồng thời lưu ra CSV.
     """
     print("\n" + "="*60)
-    print("  BẮT ĐẦU XỬ LÝ GENE EXPRESSION (STAR Counts → Log2)")
+    print("  BẮT ĐẦU XỬ LÝ GENE EXPRESSION (STAR TPM → Log2)")
     print("  Nguồn: GDC TCGA Harmonized")
     print("="*60)
 
@@ -260,7 +265,7 @@ def process_gene(input_dir: str, output_dir: str, gtf_path: str) -> pd.DataFrame
     out_path = os.path.join(output_dir, "processed_gene.csv")
     final_df.to_csv(out_path)
     print(f"\n[Gene] ✓ Đã lưu: {out_path}")
-    print(f"[Gene] ✓ Shape cuối: {final_df.shape}  (Bệnh nhân × Genes, log2(x+1) normalized)")
+    print(f"[Gene] ✓ Shape cuối: {final_df.shape}  (Bệnh nhân × Genes, log2(TPM+1) normalized)")
     print("="*60)
 
     return final_df

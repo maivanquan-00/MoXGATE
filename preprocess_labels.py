@@ -74,14 +74,17 @@ def process_clinical_labels(subtype_folder_path):
     return final_labels
 
 if __name__ == "__main__":
-    folder_path = r"D:\ĐATN\MoXGATE\data_original\subtype"
-    
+    BASE_DIR    = "/content/drive/MyDrive/ĐATN_2025.2"
+    folder_path = os.path.join(BASE_DIR, "data_original", "subtype")
+    output_path = os.path.join(BASE_DIR, "data_processed", "clean_labels.csv")
+
     print("Đang xử lý dữ liệu nhãn...")
     final_labels = process_clinical_labels(folder_path)
-    
+
     print("Xử lý hoàn tất! 5 dòng đầu tiên:")
     print(final_labels.head())
-    
+
     # Lưu ra file CSV để các file khác đọc lại
-    final_labels.to_csv(r"D:\ĐATN\MoXGATE\data_processed\clean_labels.csv", index=False)
-    print("Đã lưu kết quả ra file clean_labels.csv")
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    final_labels.to_csv(output_path, index=False)
+    print(f"Đã lưu kết quả ra file: {output_path}")

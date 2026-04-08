@@ -99,9 +99,11 @@ def filter_by_labels(omics_path: str, labeled_patients: pd.Index, name: str) -> 
     common = df.index.intersection(labeled_patients)
     df_filtered = df.loc[common]
 
-    n_missing = len(labeled_patients) - len(common)
-    if n_missing > 0:
-        print(f"[Final]   ⚠ {n_missing:,} bệnh nhân có nhãn nhưng không có trong {name} → bỏ qua")
+    missing = labeled_patients.difference(df.index)
+    if len(missing) > 0:
+        print(f"[Final]   ⚠ {len(missing):,} bệnh nhân có nhãn nhưng không có trong {name} → bỏ qua:")
+        for pid in sorted(missing):
+            print(f"[Final]       - {pid}")
 
     print(f"[Final]   Shape sau lọc: {df_filtered.shape}")
     return df_filtered
@@ -128,6 +130,17 @@ def align_patients(*dfs: pd.DataFrame) -> list:
         common_patients = common_patients.intersection(df.index)
 
     common_patients = common_patients.sort_values()
+
+    # In các bệnh nhân bị loại ở bước giao (có trong labels nhưng thiếu ≥1 omics)
+    labels_df = dfs[-1]  # labels luôn là phần tử cuối
+    dropped = labels_df.index.difference(common_patients)
+    if len(dropped) > 0:
+        print(f"\n[Final] ⚠ {len(dropped):,} bệnh nhân bị loại do thiếu ít nhất 1 omics:")
+        for pid in sorted(dropped):
+            cancer = labels_df.loc[pid, 'Cancer_Type'] if 'Cancer_Type' in labels_df.columns else '?'
+            subtype = labels_df.loc[pid, 'Clean_Subtype'] if 'Clean_Subtype' in labels_df.columns else '?'
+            print(f"[Final]   - {pid}  [{cancer} / {subtype}]")
+
     print(f"\n[Final] Bệnh nhân chung (có đủ cả 3 omics + nhãn): {len(common_patients):,}")
 
     return [df.loc[common_patients] for df in dfs]
@@ -176,6 +189,16 @@ def final_process(processed_dir: str, labels_path: str, output_dir: str):
     print(labels_final['Target_Label'].value_counts().sort_index().to_string())
     if 'Clean_Subtype' in labels_final.columns:
         print(labels_final['Clean_Subtype'].value_counts().to_string())
+
+    # Thống kê theo Cancer_Type (quan trọng: ESCA dùng để test theo paper)
+    if 'Cancer_Type' in labels_final.columns:
+        print(f"\n[Final] Thống kê theo Cancer_Type:")
+        ct_stats = labels_final.groupby('Cancer_Type')['Clean_Subtype'].value_counts().unstack(fill_value=0)
+        print(ct_stats.to_string())
+        print(f"\n[Final] Tổng bệnh nhân mỗi loại ung thư:")
+        print(labels_final['Cancer_Type'].value_counts().to_string())
+        print(f"\n[Final] ℹ️  Theo paper: ESCA ({labels_final[labels_final['Cancer_Type']=='ESCA'].shape[0]} bệnh nhân) dùng để test,"
+              f" COAD+READ+STAD ({labels_final[labels_final['Cancer_Type']!='ESCA'].shape[0]} bệnh nhân) dùng để train.")
 
     # ── Bước 4: Lưu kết quả ─────────────────────────────────────────────
     os.makedirs(output_dir, exist_ok=True)

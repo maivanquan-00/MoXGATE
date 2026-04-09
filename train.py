@@ -233,12 +233,14 @@ def train(args):
     test_metrics, test_preds, test_targets = evaluate(model, test_loader, device)
 
     subtype_names = ["CIN", "GS", "MSI", "HM-SNV", "EBV"]
+    present_labels = sorted(np.unique(np.concatenate([test_targets, test_preds])))
+    present_names  = [subtype_names[i] for i in present_labels]
     print(f"\nTest Accuracy : {test_metrics['accuracy']:.4f}")
     print(f"Test Precision: {test_metrics['precision']:.4f}")
     print(f"Test Recall   : {test_metrics['recall']:.4f}")
     print(f"Test F1       : {test_metrics['f1']:.4f}")
     print(f"\nModality weights (final): {model.get_modality_weights()}")
-    print(f"\nClassification Report:\n{classification_report(test_targets, test_preds, target_names=subtype_names, zero_division=0)}")
+    print(f"\nClassification Report:\n{classification_report(test_targets, test_preds, labels=present_labels, target_names=present_names, zero_division=0)}")
 
     # Lưu test results
     test_results = {"test_metrics": test_metrics, "modality_weights": model.get_modality_weights()}

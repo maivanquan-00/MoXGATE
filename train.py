@@ -5,11 +5,11 @@ Training script cho MoXGATE model.
 
 Hyperparameters (theo paper Section 2.1.6):
     optimizer:   AdamW, lr=1e-4, weight_decay=1e-2
-    batch_size:  32
+    batch_size:  32 (không dùng cho train — train luôn full-batch theo paper)
     epochs:      100 (early stopping patience=15)
     focal:       γ=2, α=1
     λ1:          0.01  (modality weight regularization)
-    λ2:          0.01  (Frobenius norm cross-attention)
+    λ2:          1e-4  (Frobenius norm cross-attention — paper không chỉ định)
 
 Cách chạy trên Colab:
     !python MoXGATE/train.py \\
@@ -272,8 +272,8 @@ def parse_args():
     parser.add_argument("--weight_decay", type=float, default=1e-2)
     parser.add_argument("--lambda1",      type=float, default=0.01,
                         help="Hệ số regularization modality weights")
-    parser.add_argument("--lambda2",      type=float, default=0.01,
-                        help="Hệ số Frobenius norm cross-attention")
+    parser.add_argument("--lambda2",      type=float, default=1e-4,
+                        help="Hệ số Frobenius norm cross-attention (paper không chỉ định)")
     parser.add_argument("--patience",     type=int,   default=15,
                         help="Early stopping patience (epochs)")
 

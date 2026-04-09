@@ -195,7 +195,7 @@ def build_dataloaders(
 
     Args:
         data_dir:    Thư mục data_final/
-        batch_size:  Batch size cho train DataLoader (val/test dùng full batch)
+        batch_size:  Batch size (chỉ áp dụng cho val/test; train luôn full-batch theo paper)
         val_ratio:   Tỉ lệ val từ tập COAD+READ+STAD (mặc định 0.1)
         seed:        Random seed
         num_workers: Số worker cho DataLoader
@@ -226,8 +226,11 @@ def build_dataloaders(
     test_ds  = OmicsDataset(gene, mirna, methyl, labels, test_idx)
 
     # 5. DataLoader
+    #    Paper dùng cross-sample self-attention (Eq. 4: A ∈ R^{N×N})
+    #    → cần full-batch để tất cả samples attend vào nhau nhất quán
+    #    giữa train và eval (val/test đã dùng full-batch sẵn).
     train_loader = DataLoader(
-        train_ds, batch_size=batch_size, shuffle=True,
+        train_ds, batch_size=len(train_ds), shuffle=True,
         num_workers=num_workers, pin_memory=True,
     )
     val_loader = DataLoader(

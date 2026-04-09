@@ -6,7 +6,7 @@ Load và chuẩn bị dữ liệu cho MoXGATE model.
 Split strategy (theo Appendix B của paper):
     ┌─────────────────────────────────────────────────────────────────┐
     │ ESCA (79 samples)          → Test set (unseen cancer type)      │
-    │ COAD + READ + STAD (838)   → 90% Train (754) + 10% Val (84)    │
+    │ COAD + READ + STAD (838)   → 90% Train (754) + 10% Val (84)     │
     └─────────────────────────────────────────────────────────────────┘
 
 Normalization (tránh data leakage):

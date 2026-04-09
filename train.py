@@ -5,9 +5,9 @@ Training script cho MoXGATE model.
 
 Hyperparameters (theo paper Section 2.1.6):
     optimizer:   AdamW, lr=1e-4, weight_decay=1e-2
-    batch_size:  32 (không dùng cho train — train luôn full-batch theo paper)
+    batch_size:  32
     epochs:      100 (early stopping patience=15)
-    focal:       γ=2, α=1
+    focal:       γ=2, α=1 (paper Section 2.1.4)
     λ1:          0.01  (modality weight regularization)
     λ2:          1e-4  (Frobenius norm cross-attention — paper không chỉ định)
 
@@ -118,8 +118,10 @@ def train(args):
         methyl_dim = dims["methyl"],
     ).to(device)
 
-    # Set per-class weights cho focal loss (balanced inverse frequency)
-    model.set_class_weights(class_weights)
+    # Set per-class weights cho focal loss
+    # Paper: αi = 1 cho tất cả class (Section 2.1.4)
+    # Giữ α=1.0 — class_weights được tính sẵn để dùng khi cần
+    # model.set_class_weights(class_weights)
 
     print(f"[Train] Trainable parameters: {model.count_parameters():,}\n")
 

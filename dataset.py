@@ -26,6 +26,8 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.utils.class_weight import compute_class_weight
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -75,15 +77,16 @@ def load_data(data_dir: str):
 # 2. TRAIN / VAL / TEST SPLIT
 # ─────────────────────────────────────────────────────────────────────────────
 
-def split_data(cancer_types: np.ndarray, val_ratio: float = 0.1, seed: int = 42):
+def split_data(cancer_types: np.ndarray, labels: np.ndarray, val_ratio: float = 0.1, seed: int = 42):
     """
     Chia indices thành train / val / test theo strategy của paper.
 
     Test  = ESCA (fixed — không random)
-    Train/Val = COAD+READ+STAD, chia 90-10 ngẫu nhiên (seed cố định)
+    Train/Val = COAD+READ+STAD, stratified split 90-10
 
     Args:
         cancer_types: array string Cancer_Type cho mỗi sample
+        labels:       array int Target_Label — dùng cho stratified split
         val_ratio:    Tỉ lệ validation từ tập train (mặc định 0.1)
         seed:         Random seed để reproducibility
 
@@ -96,13 +99,13 @@ def split_data(cancer_types: np.ndarray, val_ratio: float = 0.1, seed: int = 42)
     test_idx = all_idx[cancer_types == "ESCA"]
     train_val_idx = all_idx[cancer_types != "ESCA"]
 
-    # Shuffle train+val
-    shuffled = train_val_idx.copy()
-    np.random.shuffle(shuffled)
-
-    n_val     = max(1, int(len(shuffled) * val_ratio))
-    val_idx   = shuffled[:n_val]
-    train_idx = shuffled[n_val:]
+    # Stratified split: đảm bảo mỗi subtype có mặt trong val set
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=val_ratio, random_state=seed)
+    rel_train, rel_val = next(sss.split(
+        train_val_idx, labels[train_val_idx]
+    ))
+    train_idx = train_val_idx[rel_train]
+    val_idx   = train_val_idx[rel_val]
 
     print(f"[Dataset] Split — Train: {len(train_idx)}, Val: {len(val_idx)}, Test: {len(test_idx)}")
     return train_idx, val_idx, test_idx
@@ -204,6 +207,7 @@ def build_dataloaders(
         train_loader, val_loader, test_loader: DataLoader objects
         scalers: dict scalers (cần lưu lại nếu muốn inference sau)
         dims: dict {'gene': int, 'mirna': int, 'methyl': int}
+        class_weights: np.array (5,) — balanced class weights từ train set
     """
     # 1. Load
     gene, mirna, methyl, labels, cancer = load_data(data_dir)
@@ -214,8 +218,16 @@ def build_dataloaders(
         'methyl': methyl.shape[1],
     }
 
-    # 2. Split
-    train_idx, val_idx, test_idx = split_data(cancer, val_ratio, seed)
+    # 2. Split (stratified)
+    train_idx, val_idx, test_idx = split_data(cancer, labels, val_ratio, seed)
+
+    # 2b. Compute class weights từ class distribution của train set
+    train_labels = labels[train_idx]
+    class_weights = compute_class_weight(
+        'balanced',
+        classes=np.arange(5),  # 5 subtypes: CIN, GS, MSI, HM-SNV, EBV
+        y=train_labels,
+    ).astype(np.float32)
 
     # 3. Scale (fit chỉ trên train)
     gene, mirna, methyl, scalers = fit_and_scale(gene, mirna, methyl, train_idx)
@@ -243,7 +255,8 @@ def build_dataloaders(
     )
 
     print(f"[Dataset] Batches — Train: {len(train_loader)}, Val: {len(val_loader)}, Test: {len(test_loader)}")
-    return train_loader, val_loader, test_loader, scalers, dims
+    print(f"[Dataset] Class weights: {dict(zip(['CIN','GS','MSI','HM-SNV','EBV'], class_weights))}")
+    return train_loader, val_loader, test_loader, scalers, dims, class_weights
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -103,7 +103,7 @@ def train(args):
     os.makedirs(args.save_dir, exist_ok=True)
 
     # ── Data ─────────────────────────────────────────────────────────────────
-    train_loader, val_loader, test_loader, scalers, dims = build_dataloaders(
+    train_loader, val_loader, test_loader, scalers, dims, class_weights = build_dataloaders(
         data_dir    = args.data_dir,
         batch_size  = args.batch_size,
         val_ratio   = args.val_ratio,
@@ -117,6 +117,9 @@ def train(args):
         mirna_dim  = dims["mirna"],
         methyl_dim = dims["methyl"],
     ).to(device)
+
+    # Set per-class weights cho focal loss (balanced inverse frequency)
+    model.set_class_weights(class_weights)
 
     print(f"[Train] Trainable parameters: {model.count_parameters():,}\n")
 

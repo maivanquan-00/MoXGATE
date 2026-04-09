@@ -62,11 +62,16 @@ class FocalLoss(nn.Module):
         num_classes: Số lớp (5)
     """
 
-    def __init__(self, gamma: float = 2.0, alpha: float = 1.0, num_classes: int = 5):
+    def __init__(self, gamma: float = 2.0, alpha=1.0, num_classes: int = 5):
         super().__init__()
         self.gamma = gamma
-        self.alpha = alpha
         self.num_classes = num_classes
+
+        # alpha có thể là scalar (1.0) hoặc tensor per-class weights (C,)
+        if isinstance(alpha, (list, torch.Tensor)):
+            self.register_buffer('alpha', torch.as_tensor(alpha, dtype=torch.float32))
+        else:
+            self.register_buffer('alpha', torch.tensor([alpha] * num_classes, dtype=torch.float32))
 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """
@@ -78,7 +83,8 @@ class FocalLoss(nn.Module):
         """
         probs = F.softmax(logits, dim=-1)                              # (B, C)
         p_t   = probs.gather(1, targets.unsqueeze(1)).squeeze(1)       # (B,)
-        focal_weight = self.alpha * (1.0 - p_t) ** self.gamma          # (B,)
+        alpha_t = self.alpha.gather(0, targets)                        # (B,)
+        focal_weight = alpha_t * (1.0 - p_t) ** self.gamma             # (B,)
         loss = -focal_weight * torch.log(p_t + 1e-8)                   # (B,)
         return loss.mean()
 
@@ -285,7 +291,7 @@ class MoXGATE(nn.Module):
             nn.Linear(hidden_dim, num_classes),
         )
 
-        # Loss function
+        # Loss function — alpha sẽ được set bởi set_class_weights()
         self.focal_loss = FocalLoss(gamma=2.0, alpha=1.0, num_classes=num_classes)
 
         # Lưu config để dễ reconstruct
@@ -295,6 +301,12 @@ class MoXGATE(nn.Module):
             self_attn_heads=self_attn_heads, cross_attn_heads=cross_attn_heads,
             dropout_encoder=dropout_encoder, dropout_clf=dropout_clf,
             hidden_dim=hidden_dim,
+        )
+
+    def set_class_weights(self, class_weights):
+        """Cập nhật per-class alpha cho FocalLoss từ class weights đã tính."""
+        self.focal_loss.alpha = torch.as_tensor(class_weights, dtype=torch.float32).to(
+            self.focal_loss.alpha.device
         )
 
     def forward(

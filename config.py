@@ -66,13 +66,18 @@ def _detect_base_dir() -> str:
 BASE_DIR = _detect_base_dir()
 IS_COLAB = _is_colab()
 
-# ── Thư mục CODE (repo clone về Colab) ───────────────────────────
-# Colab: !git clone <repo> MoXGATE  →  code nằm tại /content/MoXGATE/
-# Local: code nằm tại LOCAL_BASE
-if IS_COLAB:
-    CODE_DIR = "/content/MoXGATE"
-else:
-    CODE_DIR = BASE_DIR
+# ── Thư mục CODE (nơi chứa các file .py của repo) ─────────────────
+# Colab: file config.py nằm cùng thư mục với train.py, dataset.py...
+#   → lấy thư mục chứa chính file config.py này làm CODE_DIR
+# Local: giống BASE_DIR
+CODE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ── Thêm CODE_DIR vào sys.path để import luôn hoạt động ───────────
+# Cho phép chạy từ bất kỳ thư mục nào:
+#   %cd /content        → !python MoXGATE/train.py   ✓
+#   %cd /content/MoXGATE → !python train.py           ✓
+if CODE_DIR not in sys.path:
+    sys.path.insert(0, CODE_DIR)
 
 
 # ══════════════════════════════════════════════════════════════════

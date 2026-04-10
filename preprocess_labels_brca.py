@@ -50,17 +50,18 @@ def process_clinical_labels_brca(subtype_folder_path):
 
 if __name__ == "__main__":
     import argparse
+    import config
 
     parser = argparse.ArgumentParser(description="Xử lý nhãn BRCA từ clinical TSV")
     parser.add_argument(
         "--subtype_dir", type=str,
-        default=r"d:\ĐATN\MoXGATE\data_original\subtype_brca",
-        help="Thư mục chứa file TSV clinical BRCA (mặc định: data_original/subtype_brca/)",
+        default=config.BRCA_RAW_SUBTYPE_DIR,
+        help="Thư mục chứa file TSV clinical BRCA",
     )
     parser.add_argument(
         "--output_path", type=str,
-        default=r"d:\ĐATN\MoXGATE\data_processed_brca\clean_labels_brca.csv",
-        help="Đường dẫn file output CSV (mặc định: data_processed_brca/clean_labels_brca.csv)",
+        default=config.BRCA_LABELS_PATH,
+        help="Đường dẫn file output CSV",
     )
     args = parser.parse_args()
 
@@ -78,3 +79,4 @@ if __name__ == "__main__":
     os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
     final_labels.to_csv(args.output_path, index=False)
     print(f"\nĐã lưu kết quả ra file: {args.output_path}")
+

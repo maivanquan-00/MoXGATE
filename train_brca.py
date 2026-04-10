@@ -17,15 +17,15 @@ Hyperparameters (giữ nguyên theo paper Section 2.1.6):
     λ1:          0.01  (modality weight regularization)
     λ2:          1e-4  (Frobenius norm cross-attention)
 
-Cách chạy trên Colab:
-    !python MoXGATE/train_brca.py \\
-        --data_dir  "/content/drive/MyDrive/ĐATN_2025.2/data_final_brca" \\
-        --save_dir  "/content/drive/MyDrive/ĐATN_2025.2/checkpoints_brca"
+Cách chạy (đường dẫn được tự động phát hiện qua config.py):
+    # Chạy với đường dẫn mặc định từ config.py:
+    python train_brca.py
 
-Cách chạy local:
-    python train_brca.py ^
-        --data_dir  "d:\\ĐATN\\MoXGATE\\data_final_brca" ^
-        --save_dir  "d:\\ĐATN\\MoXGATE\\checkpoints_brca"
+    # Ghi đè đường dẫn nếu cần:
+    python train_brca.py --data_dir /path/to/data_final_brca --save_dir /path/to/checkpoints_brca
+
+    # Colab (chỉ cần chỉnh LOCAL_BASE / DRIVE_PROJECT_DIR trong config.py):
+    !python MoXGATE/train_brca.py
 """
 
 import os
@@ -36,6 +36,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report
+
+import config  # noqa: E402 — đường dẫn trung tâm, tự phát hiện Colab vs Local
 
 # ─── Import từ dataset BRCA (KHÔNG phải dataset.py của GI) ───────────────────
 from dataset_brca import build_dataloaders, BRCA_SUBTYPE_NAMES, NUM_CLASSES_BRCA
@@ -283,33 +285,40 @@ def train(args):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train MoXGATE model — BRCA dataset")
+    parser = argparse.ArgumentParser(
+        description="Train MoXGATE model — BRCA dataset",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
 
-    # Paths
-    parser.add_argument("--data_dir", type=str, required=True,
-                        help="Thư mục data_final_brca/ chứa final_*.csv")
-    parser.add_argument("--save_dir", type=str, required=True,
-                        help="Thư mục lưu checkpoint và kết quả BRCA")
+    # ── Paths (default tự động từ config.py) ─────────────────────────────────
+    parser.add_argument(
+        "--data_dir", type=str, default=config.BRCA_FINAL_DIR,
+        help="Thư mục data_final_brca/ chứa final_*.csv",
+    )
+    parser.add_argument(
+        "--save_dir", type=str, default=config.BRCA_CHECKPOINT_DIR,
+        help="Thư mục lưu checkpoint và kết quả BRCA",
+    )
 
-    # Training hyperparams — giữ nguyên defaults theo paper
-    parser.add_argument("--epochs",       type=int,   default=100)
-    parser.add_argument("--batch_size",   type=int,   default=32)
-    parser.add_argument("--lr",           type=float, default=1e-4)
-    parser.add_argument("--weight_decay", type=float, default=1e-2)
-    parser.add_argument("--lambda1",      type=float, default=0.01,
+    # ── Training hyperparams (default từ config.py theo paper) ───────────────
+    parser.add_argument("--epochs",       type=int,   default=config.DEFAULT_EPOCHS)
+    parser.add_argument("--batch_size",   type=int,   default=config.DEFAULT_BATCH_SIZE)
+    parser.add_argument("--lr",           type=float, default=config.DEFAULT_LR)
+    parser.add_argument("--weight_decay", type=float, default=config.DEFAULT_WEIGHT_DECAY)
+    parser.add_argument("--lambda1",      type=float, default=config.DEFAULT_LAMBDA1,
                         help="Hệ số regularization modality weights")
-    parser.add_argument("--lambda2",      type=float, default=1e-4,
+    parser.add_argument("--lambda2",      type=float, default=config.DEFAULT_LAMBDA2,
                         help="Hệ số Frobenius norm cross-attention")
-    parser.add_argument("--patience",     type=int,   default=15,
+    parser.add_argument("--patience",     type=int,   default=config.DEFAULT_PATIENCE,
                         help="Early stopping patience (epochs)")
 
-    # Data split — BRCA có thêm test_ratio
-    parser.add_argument("--val_ratio",   type=float, default=0.1,
+    # ── Data split ────────────────────────────────────────────────────────────
+    parser.add_argument("--val_ratio",   type=float, default=config.DEFAULT_VAL_RATIO,
                         help="Tỉ lệ validation trên toàn bộ tập")
-    parser.add_argument("--test_ratio",  type=float, default=0.1,
+    parser.add_argument("--test_ratio",  type=float, default=config.DEFAULT_TEST_RATIO,
                         help="Tỉ lệ test trên toàn bộ tập")
-    parser.add_argument("--seed",        type=int,   default=42)
-    parser.add_argument("--num_workers", type=int,   default=0)
+    parser.add_argument("--seed",        type=int,   default=config.DEFAULT_SEED)
+    parser.add_argument("--num_workers", type=int,   default=config.DEFAULT_NUM_WORKERS)
 
     return parser.parse_args()
 

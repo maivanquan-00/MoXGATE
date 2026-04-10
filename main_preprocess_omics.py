@@ -75,6 +75,8 @@ import os
 import argparse
 import time
 
+import config  # đường dẫn trung tâm, tự phát hiện Colab vs Local
+
 from preprocess_Gene   import process_gene
 from preprocess_miRNA  import process_mirna
 from preprocess_CpG    import process_cpg
@@ -92,43 +94,43 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    # Đường dẫn cơ bản — bắt buộc
+    # ── Đường dẫn (default tự động từ config.py) ────────────────────────────
     parser.add_argument(
-        "--input_dir", type=str, required=True,
+        "--input_dir", type=str, default=config.GI_RAW_OMICS_DIR,
         help="Thư mục gốc chứa dữ liệu omics (chứa các subfolder gene/, mirna/, methyl/)"
     )
     parser.add_argument(
-        "--output_dir", type=str, required=True,
+        "--output_dir", type=str, default=config.GI_PROCESSED_DIR,
         help="Thư mục lưu các file CSV đã xử lý (processed_*.csv và clean_labels.csv)"
     )
     parser.add_argument(
-        "--final_dir", type=str, required=True,
+        "--final_dir", type=str, default=config.GI_FINAL_DIR,
         help="Thư mục lưu kết quả cuối (final_*.csv)"
     )
     parser.add_argument(
-        "--subtype_dir", type=str, required=True,
+        "--subtype_dir", type=str, default=config.GI_RAW_SUBTYPE_DIR,
         help="Thư mục chứa các file TSV clinical/subtype"
     )
     parser.add_argument(
-        "--gtf_path", type=str, required=True,
+        "--gtf_path", type=str, default=config.GTF_PATH,
         help="Đường dẫn file GENCODE GTF annotation (plain hoặc .gz) — dùng cho Gene"
     )
 
-    # Đường dẫn phụ trợ cho CpG — tùy chọn
+    # ── Đường dẫn phụ trợ cho CpG — tùy chọn ───────────────────────────────
     parser.add_argument(
-        "--cross_reactive_path", type=str, default=None,
-        help="(Tùy chọn) File cross-reactive probes (Chen et al. 2013) — dùng cho CpG"
+        "--cross_reactive_path", type=str, default=config.CROSS_REACTIVE_PATH,
+        help="(Tùy chọn) File cross-reactive probes (Chen et al. 2013)"
     )
     parser.add_argument(
-        "--manifest_path", type=str, default=None,
+        "--manifest_path", type=str, default=config.MANIFEST_PATH,
         help="(Tùy chọn) Illumina 450k manifest CSV — dùng để lọc chrX/Y cho CpG"
     )
 
-    # Flags skip từng bước (khi file đã có sẵn)
-    parser.add_argument("--skip_gene",   action="store_true", help="Bỏ qua bước xử lý Gene (dùng file cũ)")
-    parser.add_argument("--skip_mirna",  action="store_true", help="Bỏ qua bước xử lý miRNA (dùng file cũ)")
-    parser.add_argument("--skip_cpg",    action="store_true", help="Bỏ qua bước xử lý CpG (dùng file cũ)")
-    parser.add_argument("--skip_labels", action="store_true", help="Bỏ qua bước xử lý labels (dùng file cũ)")
+    # ── Flags skip từng bước (khi file đã có sẵn) ──────────────────────────────
+    parser.add_argument("--skip_gene",   action="store_true", help="Bỏ qua bước xử lý Gene")
+    parser.add_argument("--skip_mirna",  action="store_true", help="Bỏ qua bước xử lý miRNA")
+    parser.add_argument("--skip_cpg",    action="store_true", help="Bỏ qua bước xử lý CpG")
+    parser.add_argument("--skip_labels", action="store_true", help="Bỏ qua bước xử lý labels")
 
     return parser.parse_args()
 

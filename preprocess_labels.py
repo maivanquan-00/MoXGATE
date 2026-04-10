@@ -74,17 +74,32 @@ def process_clinical_labels(subtype_folder_path):
     return final_labels
 
 if __name__ == "__main__":
-    BASE_DIR    = "/content/drive/MyDrive/ĐATN_2025.2"
-    folder_path = os.path.join(BASE_DIR, "data_original", "subtype")
-    output_path = os.path.join(BASE_DIR, "data_processed", "clean_labels.csv")
+    import argparse
+    import config
 
-    print("Đang xử lý dữ liệu nhãn...")
-    final_labels = process_clinical_labels(folder_path)
+    parser = argparse.ArgumentParser(description="Xử lý nhãn GI Cancer từ clinical TSV")
+    parser.add_argument(
+        "--subtype_dir", type=str,
+        default=config.GI_RAW_SUBTYPE_DIR,
+        help="Thư mục chứa file TSV clinical GI",
+    )
+    parser.add_argument(
+        "--output_path", type=str,
+        default=config.GI_LABELS_PATH,
+        help="Đường dẫn file output CSV",
+    )
+    args = parser.parse_args()
 
-    print("Xử lý hoàn tất! 5 dòng đầu tiên:")
+    print("Đang xử lý dữ liệu nhãn GI Cancer...")
+    print(f"  subtype_dir : {args.subtype_dir}")
+    print(f"  output_path : {args.output_path}")
+
+    final_labels = process_clinical_labels(args.subtype_dir)
+
+    print("\nXử lý hoàn tất! 5 dòng đầu tiên:")
     print(final_labels.head())
+    print(f"\nPhân bố subtype:\n{final_labels['Clean_Subtype'].value_counts().to_string()}")
 
-    # Lưu ra file CSV để các file khác đọc lại
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    final_labels.to_csv(output_path, index=False)
-    print(f"Đã lưu kết quả ra file: {output_path}")
+    os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
+    final_labels.to_csv(args.output_path, index=False)
+    print(f"\nĐã lưu kết quả ra file: {args.output_path}")

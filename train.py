@@ -1,7 +1,7 @@
 """
 train.py
 ========
-Training script cho MoXGATE model.
+Training script cho MoXGATE model — GI (Gastrointestinal) cancer.
 
 Hyperparameters (theo paper Section 2.1.6):
     optimizer:   AdamW, lr=1e-4, weight_decay=1e-2
@@ -11,16 +11,15 @@ Hyperparameters (theo paper Section 2.1.6):
     λ1:          0.01  (modality weight regularization)
     λ2:          1e-4  (Frobenius norm cross-attention — paper không chỉ định)
 
-Cách chạy trên Colab:
-    !python MoXGATE/train.py \\
-        --data_dir  "/content/drive/MyDrive/ĐATN_2025.2/data_final" \\
-        --save_dir  "/content/drive/MyDrive/ĐATN_2025.2/checkpoints"
+Cách chạy (đường dẫn được tự động phát hiện qua config.py):
+    # Chạy với đường dẫn mặc định từ config.py:
+    python train.py
 
-    # Với custom hyperparams:
-    !python MoXGATE/train.py \\
-        --data_dir  "/content/drive/MyDrive/ĐATN_2025.2/data_final" \\
-        --save_dir  "/content/drive/MyDrive/ĐATN_2025.2/checkpoints" \\
-        --epochs 150 --batch_size 64 --lr 5e-5
+    # Ghi đè đường dẫn nếu cần:
+    python train.py --data_dir /path/to/data_final --save_dir /path/to/checkpoints
+
+    # Colab (chỉ cần chỉnh LOCAL_BASE / DRIVE_PROJECT_DIR trong config.py):
+    !python MoXGATE/train.py
 """
 
 import os
@@ -31,6 +30,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report
+
+import config  # đường dẫn trung tâm, tự phát hiện Colab vs Local
 
 from dataset import build_dataloaders
 from model   import MoXGATE
@@ -262,30 +263,37 @@ def train(args):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train MoXGATE model")
+    parser = argparse.ArgumentParser(
+        description="Train MoXGATE model — GI Cancer",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
 
-    # Paths
-    parser.add_argument("--data_dir", type=str, required=True,
-                        help="Thư mục data_final/ chứa final_*.csv")
-    parser.add_argument("--save_dir", type=str, required=True,
-                        help="Thư mục lưu checkpoint và kết quả")
+    # ── Paths (default tự động từ config.py) ─────────────────────────────────
+    parser.add_argument(
+        "--data_dir", type=str, default=config.GI_FINAL_DIR,
+        help="Thư mục data_final/ chứa final_*.csv",
+    )
+    parser.add_argument(
+        "--save_dir", type=str, default=config.GI_CHECKPOINT_DIR,
+        help="Thư mục lưu checkpoint và kết quả",
+    )
 
-    # Training hyperparams
-    parser.add_argument("--epochs",       type=int,   default=100)
-    parser.add_argument("--batch_size",   type=int,   default=32)
-    parser.add_argument("--lr",           type=float, default=1e-4)
-    parser.add_argument("--weight_decay", type=float, default=1e-2)
-    parser.add_argument("--lambda1",      type=float, default=0.01,
+    # ── Training hyperparams (default từ config.py theo paper) ───────────────
+    parser.add_argument("--epochs",       type=int,   default=config.DEFAULT_EPOCHS)
+    parser.add_argument("--batch_size",   type=int,   default=config.DEFAULT_BATCH_SIZE)
+    parser.add_argument("--lr",           type=float, default=config.DEFAULT_LR)
+    parser.add_argument("--weight_decay", type=float, default=config.DEFAULT_WEIGHT_DECAY)
+    parser.add_argument("--lambda1",      type=float, default=config.DEFAULT_LAMBDA1,
                         help="Hệ số regularization modality weights")
-    parser.add_argument("--lambda2",      type=float, default=1e-4,
+    parser.add_argument("--lambda2",      type=float, default=config.DEFAULT_LAMBDA2,
                         help="Hệ số Frobenius norm cross-attention (paper không chỉ định)")
-    parser.add_argument("--patience",     type=int,   default=15,
+    parser.add_argument("--patience",     type=int,   default=config.DEFAULT_PATIENCE,
                         help="Early stopping patience (epochs)")
 
-    # Data
-    parser.add_argument("--val_ratio",   type=float, default=0.1)
-    parser.add_argument("--seed",        type=int,   default=42)
-    parser.add_argument("--num_workers", type=int,   default=0)
+    # ── Data ───────────────────────────────────────────────────────────────
+    parser.add_argument("--val_ratio",   type=float, default=config.DEFAULT_VAL_RATIO)
+    parser.add_argument("--seed",        type=int,   default=config.DEFAULT_SEED)
+    parser.add_argument("--num_workers", type=int,   default=config.DEFAULT_NUM_WORKERS)
 
     return parser.parse_args()
 

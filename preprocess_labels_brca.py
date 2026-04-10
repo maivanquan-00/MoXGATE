@@ -13,7 +13,7 @@ def process_clinical_labels_brca(subtype_folder_path):
     # 2. Các cột mục tiêu cần lấy từ file gốc
     target_cols = [
         'Patient ID', 
-        'PAM50 mRNA',  # hoặc tên cột subtype phù hợp với BRCA
+        'Subtype',
     ]
     
     for file in file_paths:

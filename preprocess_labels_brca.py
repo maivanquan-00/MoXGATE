@@ -49,7 +49,7 @@ def process_clinical_labels_brca(subtype_folder_path):
 if __name__ == "__main__":
     BASE_DIR    = "/content/drive/MyDrive/ĐATN_2025.2"
     folder_path = os.path.join(BASE_DIR, "data_original", "subtype_brca")
-    output_path = os.path.join(BASE_DIR, "data_processed", "clean_labels_brca.csv")
+    output_path = os.path.join(BASE_DIR, "data_processed_brca", "clean_labels_brca.csv")
     print("Đang xử lý dữ liệu nhãn BRCA...")
     final_labels = process_clinical_labels_brca(folder_path)
     print("Xử lý hoàn tất! 5 dòng đầu tiên:")

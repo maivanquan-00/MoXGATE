@@ -49,17 +49,32 @@ def process_clinical_labels_brca(subtype_folder_path):
     return final_labels
 
 if __name__ == "__main__":
-    BASE_DIR    = "/content/drive/MyDrive/ĐATN_2025.2"
-    folder_path = os.path.join(BASE_DIR, "data_original", "subtype_brca")
-    output_path = os.path.join(BASE_DIR, "data_processed_brca", "clean_labels_brca.csv")
-    
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Xử lý nhãn BRCA từ clinical TSV")
+    parser.add_argument(
+        "--subtype_dir", type=str,
+        default=r"d:\ĐATN\MoXGATE\data_original\subtype_brca",
+        help="Thư mục chứa file TSV clinical BRCA (mặc định: data_original/subtype_brca/)",
+    )
+    parser.add_argument(
+        "--output_path", type=str,
+        default=r"d:\ĐATN\MoXGATE\data_processed_brca\clean_labels_brca.csv",
+        help="Đường dẫn file output CSV (mặc định: data_processed_brca/clean_labels_brca.csv)",
+    )
+    args = parser.parse_args()
+
     print("Đang xử lý dữ liệu nhãn BRCA...")
-    final_labels = process_clinical_labels_brca(folder_path)
-    
-    print("Xử lý hoàn tất! 5 dòng đầu tiên:")
+    print(f"  subtype_dir : {args.subtype_dir}")
+    print(f"  output_path : {args.output_path}")
+
+    final_labels = process_clinical_labels_brca(args.subtype_dir)
+
+    print("\nXử lý hoàn tất! 5 dòng đầu tiên:")
     print(final_labels.head())
-    
+    print(f"\nPhân bố subtype:\n{final_labels['Clean_Subtype'].value_counts().to_string()}")
+
     # Lưu ra file CSV để các file khác đọc lại
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    final_labels.to_csv(output_path, index=False)
-    print(f"Đã lưu kết quả ra file: {output_path}")
+    os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
+    final_labels.to_csv(args.output_path, index=False)
+    print(f"\nĐã lưu kết quả ra file: {args.output_path}")

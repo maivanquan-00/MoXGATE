@@ -35,13 +35,38 @@ import json
 import numpy as np
 import torch
 import torch.nn as nn
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report, confusion_matrix
 
 import config  # noqa: E402 — đường dẫn trung tâm, tự phát hiện Colab vs Local
 
 # ─── Import từ dataset BRCA (KHÔNG phải dataset.py của GI) ───────────────────
 from dataset_brca import build_dataloaders, BRCA_SUBTYPE_NAMES, NUM_CLASSES_BRCA
 from model import MoXGATE
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 0. VISUALIZATION UTILS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def plot_confusion_matrix(y_true, y_pred, labels, save_path):
+    """Vẽ và lưu heatmap cho Confusion Matrix."""
+    try:
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+        
+        cm = confusion_matrix(y_true, y_pred)
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
+                    xticklabels=labels, yticklabels=labels)
+        plt.title('Confusion Matrix - BRCA Subtypes')
+        plt.xlabel('Predicted')
+        plt.ylabel('Actual')
+        plt.tight_layout()
+        plt.savefig(save_path)
+        plt.close()
+        print(f"  ✓ Saved Confusion Matrix Heatmap: {save_path}")
+    except ImportError:
+        print("\n  ! Skill: matplotlib/seaborn không khả dụng. Chỉ in text-based matrix.")
+        print(confusion_matrix(y_true, y_pred))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -132,7 +157,7 @@ def train(args):
 
     # Tùy chọn: dùng class weights để compensate imbalance BRCA
     # Paper: α=1 (không weight) — bỏ comment dòng dưới nếu muốn thử
-    # model.set_class_weights(class_weights)
+    model.set_class_weights(class_weights)
 
     print(f"[Train BRCA] Trainable parameters: {model.count_parameters():,}\n")
 
@@ -263,6 +288,10 @@ def train(args):
     print(f"\nModality weights (final): {model.get_modality_weights()}")
     print(f"\nClassification Report:\n"
           f"{classification_report(test_targets, test_preds, labels=present_labels, target_names=present_names, zero_division=0)}")
+
+    # ── Vẽ Confusion Matrix ──
+    cm_path = os.path.join(args.save_dir, "confusion_matrix_brca.png")
+    plot_confusion_matrix(test_targets, test_preds, labels=present_names, save_path=cm_path)
 
     # Lưu test results
     test_results = {

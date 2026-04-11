@@ -305,7 +305,7 @@ def train(args):
         json.dump(test_results, f, indent=2)
 
     print(f"\n{'★'*60}")
-    print(f"  HOÀN TẤT BRCA — Best val acc: {best_val_acc:.4f} | Test acc: {test_metrics['accuracy']:.4f}")
+    print(f"  HOÀN TẤT BRCA — Val Acc: {best_val_acc:.4f} | Test Acc: {test_metrics['accuracy']:.4f} | Test F1: {test_metrics['f1']:.4f}")
     print(f"{'★'*60}")
 
 

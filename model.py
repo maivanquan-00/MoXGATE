@@ -362,7 +362,8 @@ class MoXGATE(nn.Module):
         loss_focal = self.focal_loss(logits, targets)
 
         # λ1: push modality weights toward uniform distribution (1/3 mỗi cái)
-        loss_modality = lambda1 * torch.sum((w - 1.0 / 3) ** 2)
+        #loss_modality = lambda1 * torch.sum((w - 1.0 / 3) ** 2)
+        loss_modality = lambda1 * torch.sum((w - 1.0) ** 2)
 
         # λ2: Frobenius norm trên in_proj_weight của cross-attention
         # in_proj_weight shape: (3*embed_dim, embed_dim) gộp Q/K/V projections

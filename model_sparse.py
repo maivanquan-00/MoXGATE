@@ -132,7 +132,8 @@ class MoXGATESparse(nn.Module):
 
     def compute_loss(self, logits, targets, w, lambda1=0.01, lambda2=0.01):
         loss_focal = self.focal_loss(logits, targets)
-        loss_modality = lambda1 * torch.sum((w - 1.0 / 3) ** 2)
+        #loss_modality = lambda1 * torch.sum((w - 1.0 / 3) ** 2)
+        loss_modality = lambda1 * torch.sum((w - 1.0) ** 2)
         w_c = self.fusion.cross_attn.in_proj_weight
         loss_frob = lambda2 * torch.norm(w_c, p='fro') ** 2
         total_loss = loss_focal + loss_modality + loss_frob

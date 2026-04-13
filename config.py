@@ -123,6 +123,25 @@ BRCA_CHECKPOINT_DIR = os.path.join(BASE_DIR, "checkpoints_brca")
 
 
 # ══════════════════════════════════════════════════════════════════
+#  ĐƯỜNG DẪN DỮ LIỆU — KIPAN (Kidney Cancer: KICH / KIRC / KIRP)
+# ══════════════════════════════════════════════════════════════════
+
+# Dữ liệu gốc
+KIPAN_RAW_OMICS_DIR   = os.path.join(BASE_DIR, "data_original", "multi_omics_kipan")
+KIPAN_RAW_SUBTYPE_DIR = os.path.join(BASE_DIR, "data_original", "subtype_kipan")
+
+# Dữ liệu trung gian
+KIPAN_PROCESSED_DIR   = os.path.join(BASE_DIR, "data_processed_kipan")
+KIPAN_LABELS_PATH     = os.path.join(KIPAN_PROCESSED_DIR, "clean_labels_kipan.csv")
+
+# Dữ liệu cuối
+KIPAN_FINAL_DIR       = os.path.join(BASE_DIR, "data_final_kipan")
+
+# Checkpoint & kết quả
+KIPAN_CHECKPOINT_DIR  = os.path.join(BASE_DIR, "checkpoints_kipan")
+
+
+# ══════════════════════════════════════════════════════════════════
 #  HYPERPARAMETERS MẶC ĐỊNH (theo paper MoXGATE)
 # ══════════════════════════════════════════════════════════════════
 
@@ -174,6 +193,12 @@ def print_config():
         f"  Processed       : {BRCA_PROCESSED_DIR}",
         f"  Final           : {BRCA_FINAL_DIR}",
         f"  Checkpoints     : {BRCA_CHECKPOINT_DIR}",
+        dash,
+        "  [KIPAN]",
+        f"  Raw omics       : {KIPAN_RAW_OMICS_DIR}",
+        f"  Processed       : {KIPAN_PROCESSED_DIR}",
+        f"  Final           : {KIPAN_FINAL_DIR}",
+        f"  Checkpoints     : {KIPAN_CHECKPOINT_DIR}",
         f"{sep}\n",
     ]
     output = "\n".join(lines)

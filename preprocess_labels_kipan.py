@@ -78,10 +78,15 @@ def process_clinical_labels_kipan(subtype_folder_path: str) -> pd.DataFrame:
         master_df = master_df.rename(columns={master_df.columns[0]: 'Patient_ID'})
 
     # 3. Xác định cột Cancer Type
-    # TCGA clinical: 'TCGA PanCanAtlas Cancer Type Acronym' hoặc 'project_id'
+    # Thứ tự ưu tiên theo định dạng TCGA phổ biến:
+    #   'Subtype'                              → 3 file KICH/KIRC/KIRP riêng biệt
+    #   'TCGA PanCanAtlas Cancer Type Acronym' → Pan-Cancer clinical TSV
+    #   'project_id'                           → GDC manifest (dạng TCGA-KIRC)
+    #   'Cancer Type Abbreviation'             → các nguồn khác
+    print(f"[KIPAN Labels] Các cột trong file: {list(master_df.columns[:10])}")
     cancer_col = None
-    for col in ['TCGA PanCanAtlas Cancer Type Acronym', 'project_id',
-                'Cancer Type Abbreviation', 'Cancer_Type']:
+    for col in ['Subtype', 'TCGA PanCanAtlas Cancer Type Acronym', 'project_id',
+                'Cancer Type Abbreviation', 'Cancer_Type', 'type']:
         if col in master_df.columns:
             cancer_col = col
             break
@@ -89,11 +94,12 @@ def process_clinical_labels_kipan(subtype_folder_path: str) -> pd.DataFrame:
     if cancer_col is None:
         raise ValueError(
             f"Không tìm thấy cột Cancer Type trong file TSV.\n"
-            f"Các cột hiện có: {list(master_df.columns)}"
+            f"Tất cả các cột: {list(master_df.columns)}"
         )
 
     master_df = master_df.rename(columns={cancer_col: 'Cancer_Type'})
     print(f"[KIPAN Labels] Dùng cột nhãn: '{cancer_col}'")
+    print(f"[KIPAN Labels] Mẫu giá trị Cancer_Type: {master_df['Cancer_Type'].unique()[:10].tolist()}")
 
     # 4. Chuẩn hóa giá trị Cancer_Type
     # project_id thường có dạng 'TCGA-KIRC' → tách phần sau dấu '-'

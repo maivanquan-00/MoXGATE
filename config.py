@@ -142,6 +142,25 @@ KIPAN_CHECKPOINT_DIR  = os.path.join(BASE_DIR, "checkpoints_kipan")
 
 
 # ══════════════════════════════════════════════════════════════════
+#  ĐƯỜNG DẪN DỮ LIỆU — UCEC (Uterine Endometrial Carcinoma)
+# ══════════════════════════════════════════════════════════════════
+
+# Dữ liệu gốc
+UCEC_RAW_OMICS_DIR   = os.path.join(BASE_DIR, "data_original", "multi_omics_ucec")
+UCEC_RAW_SUBTYPE_DIR = os.path.join(BASE_DIR, "data_original", "subtype_ucec")
+
+# Dữ liệu trung gian
+UCEC_PROCESSED_DIR   = os.path.join(BASE_DIR, "data_processed_ucec")
+UCEC_LABELS_PATH     = os.path.join(UCEC_PROCESSED_DIR, "clean_labels_ucec.csv")
+
+# Dữ liệu cuối
+UCEC_FINAL_DIR       = os.path.join(BASE_DIR, "data_final_ucec")
+
+# Checkpoint & kết quả
+UCEC_CHECKPOINT_DIR  = os.path.join(BASE_DIR, "checkpoints_ucec")
+
+
+# ══════════════════════════════════════════════════════════════════
 #  HYPERPARAMETERS MẶC ĐỊNH (theo paper MoXGATE)
 # ══════════════════════════════════════════════════════════════════
 
@@ -199,6 +218,12 @@ def print_config():
         f"  Processed       : {KIPAN_PROCESSED_DIR}",
         f"  Final           : {KIPAN_FINAL_DIR}",
         f"  Checkpoints     : {KIPAN_CHECKPOINT_DIR}",
+        dash,
+        "  [UCEC]",
+        f"  Raw omics       : {UCEC_RAW_OMICS_DIR}",
+        f"  Processed       : {UCEC_PROCESSED_DIR}",
+        f"  Final           : {UCEC_FINAL_DIR}",
+        f"  Checkpoints     : {UCEC_CHECKPOINT_DIR}",
         f"{sep}\n",
     ]
     output = "\n".join(lines)

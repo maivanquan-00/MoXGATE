@@ -207,12 +207,18 @@ def final_process(processed_dir: str, labels_path: str, output_dir: str):
     # Thống kê theo Cancer_Type (quan trọng: ESCA dùng để test theo paper)
     if 'Cancer_Type' in labels_final.columns:
         print(f"\n[Final] Thống kê theo Cancer_Type:")
-        ct_stats = labels_final.groupby('Cancer_Type')['Clean_Subtype'].value_counts().unstack(fill_value=0)
-        print(ct_stats.to_string())
+        if 'Clean_Subtype' in labels_final.columns:
+            ct_stats = labels_final.groupby('Cancer_Type')['Clean_Subtype'].value_counts().unstack(fill_value=0)
+            print(ct_stats.to_string())
+        else:
+            # KIPAN / datasets không có Clean_Subtype: chỉ in số lượng theo Cancer_Type
+            ct_stats = labels_final.groupby('Cancer_Type')['Target_Label'].count()
+            print(ct_stats.to_string())
         print(f"\n[Final] Tổng bệnh nhân mỗi loại ung thư:")
         print(labels_final['Cancer_Type'].value_counts().to_string())
-        print(f"\n[Final] ℹ️  Theo paper: ESCA ({labels_final[labels_final['Cancer_Type']=='ESCA'].shape[0]} bệnh nhân) dùng để test,"
-              f" COAD+READ+STAD ({labels_final[labels_final['Cancer_Type']!='ESCA'].shape[0]} bệnh nhân) dùng để train.")
+        if labels_final['Cancer_Type'].isin(['ESCA']).any():
+            print(f"\n[Final] ℹ️  Theo paper: ESCA ({labels_final[labels_final['Cancer_Type']=='ESCA'].shape[0]} bệnh nhân) dùng để test,"
+                  f" COAD+READ+STAD ({labels_final[labels_final['Cancer_Type']!='ESCA'].shape[0]} bệnh nhân) dùng để train.")
 
     # ── Bước 4: Lưu kết quả ─────────────────────────────────────────────
     os.makedirs(output_dir, exist_ok=True)

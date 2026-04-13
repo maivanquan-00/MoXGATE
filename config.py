@@ -4,12 +4,12 @@ config.py
 Cấu hình đường dẫn trung tâm cho toàn bộ dự án MoXGATE.
 
 ╔══════════════════════════════════════════════════════════════════╗
-║  ĐỌC TRƯỚC KHI DÙNG                                             ║
-║  File này TỰ ĐỘNG phát hiện môi trường (Local / Google Colab)   ║
-║  và thiết lập đường dẫn tương ứng.                              ║
+║  ĐỌC TRƯỚC KHI DÙNG                                              ║
+║  File này TỰ ĐỘNG phát hiện môi trường (Local / Google Colab)    ║
+║  và thiết lập đường dẫn tương ứng.                               ║
 ║                                                                  ║
-║  Nếu bạn chỉ muốn thay đổi đường dẫn:                           ║
-║    → Chỉnh sửa phần "CẤU HÌNH THỦ CÔNG" bên dưới              ║
+║  Nếu bạn chỉ muốn thay đổi đường dẫn:                            ║
+║    → Chỉnh sửa phần "CẤU HÌNH THỦ CÔNG" bên dưới                 ║
 ╚══════════════════════════════════════════════════════════════════╝
 """
 

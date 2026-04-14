@@ -77,37 +77,38 @@ def load_data(data_dir: str):
 # 2. TRAIN / VAL / TEST SPLIT
 # ─────────────────────────────────────────────────────────────────────────────
 
-def split_data(cancer_types: np.ndarray, labels: np.ndarray, val_ratio: float = 0.1, seed: int = 42):
+def split_data(cancer_types: np.ndarray, labels: np.ndarray, val_ratio: float = 0.1, test_ratio: float = 0.2, seed: int = 42):
     """
-    Chia indices thành train / val / test theo strategy của paper.
-
-    Test  = ESCA (fixed — không random)
-    Train/Val = COAD+READ+STAD, stratified split 90-10
-
+    Gộp toàn bộ GIAC (COAD, READ, STAD, ESCA) và chia Train 70% / Val 10% / Test 20%.
+    Đảm bảo StratifiedShuffleSplit phân đều tỷ lệ các nhóm.
+    
     Args:
         cancer_types: array string Cancer_Type cho mỗi sample
         labels:       array int Target_Label — dùng cho stratified split
-        val_ratio:    Tỉ lệ validation từ tập train (mặc định 0.1)
+        val_ratio:    Tỉ lệ validation trên TỔNG DATA (mặc định 0.1)
+        test_ratio:   Tỉ lệ test trên TỔNG DATA (mặc định 0.2)
         seed:         Random seed để reproducibility
 
     Returns:
         train_idx, val_idx, test_idx: numpy arrays of indices
     """
     np.random.seed(seed)
+    all_idx = np.arange(len(labels))
 
-    all_idx  = np.arange(len(cancer_types))
-    test_idx = all_idx[cancer_types == "ESCA"]
-    train_val_idx = all_idx[cancer_types != "ESCA"]
+    # Stage 1: Tách Test set (20%)
+    sss_test = StratifiedShuffleSplit(n_splits=1, test_size=test_ratio, random_state=seed)
+    train_val_idx, test_idx = next(sss_test.split(all_idx, labels))
 
-    # Stratified split: đảm bảo mỗi subtype có mặt trong val set
-    sss = StratifiedShuffleSplit(n_splits=1, test_size=val_ratio, random_state=seed)
-    rel_train, rel_val = next(sss.split(
-        train_val_idx, labels[train_val_idx]
-    ))
-    train_idx = train_val_idx[rel_train]
-    val_idx   = train_val_idx[rel_val]
+    # Stage 2: Tách Val set từ phần còn lại (Train_Val).
+    # val_ratio so với phần còn lại = 0.1 / (1 - 0.2) = 0.125
+    relative_val_ratio = val_ratio / (1.0 - test_ratio)
+    sss_val = StratifiedShuffleSplit(n_splits=1, test_size=relative_val_ratio, random_state=seed)
+    train_idx_rel, val_idx_rel = next(sss_val.split(train_val_idx, labels[train_val_idx]))
 
-    print(f"[Dataset] Split — Train: {len(train_idx)}, Val: {len(val_idx)}, Test: {len(test_idx)}")
+    train_idx = train_val_idx[train_idx_rel]
+    val_idx   = train_val_idx[val_idx_rel]
+
+    print(f"[Dataset] Pooled Split — Train: {len(train_idx)}, Val: {len(val_idx)}, Test: {len(test_idx)}")
     return train_idx, val_idx, test_idx
 
 
@@ -190,6 +191,7 @@ def build_dataloaders(
     data_dir:   str,
     batch_size: int   = 32,
     val_ratio:  float = 0.1,
+    test_ratio: float = 0.2,
     seed:       int   = 42,
     num_workers:int   = 0,
 ):
@@ -199,7 +201,8 @@ def build_dataloaders(
     Args:
         data_dir:    Thư mục data_final/
         batch_size:  Batch size cho DataLoader (mặc định 32, val/test dùng full batch)
-        val_ratio:   Tỉ lệ val từ tập COAD+READ+STAD (mặc định 0.1)
+        val_ratio:   Tỉ lệ val trên tổng số data (mặc định 0.1)
+        test_ratio:  Tỉ lệ test trên tổng số data (mặc định 0.2)
         seed:        Random seed
         num_workers: Số worker cho DataLoader
 
@@ -219,7 +222,7 @@ def build_dataloaders(
     }
 
     # 2. Split (stratified)
-    train_idx, val_idx, test_idx = split_data(cancer, labels, val_ratio, seed)
+    train_idx, val_idx, test_idx = split_data(cancer, labels, val_ratio, test_ratio, seed)
 
     # 2b. Compute class weights từ class distribution của train set
     train_labels = labels[train_idx]

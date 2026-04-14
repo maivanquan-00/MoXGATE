@@ -2,4 +2,5 @@ data_original/
 data_processed/
 data_final/
 note.txt
+Heterogeneous_Graph/
 __pycache__/

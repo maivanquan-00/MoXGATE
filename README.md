@@ -1,12 +1,9 @@
+# MoXGATE: Kế Hoạch Thực Hiện Chi Tiết (12 Tuần)
 
----
-
-## KẾ HOẠCH THỰC HIỆN CHI TIẾT — 12 TUẦN
-
-### Tổng quan 4 Module cải tiến
+## Tổng quan 4 Module cải tiến
 
 | # | Module | Mô tả | Effort | Rủi ro |
-|---|--------|-------|--------|--------|
+| --- | --- | --- | --- | --- |
 | 3 | Sparse Cross-Attention | Thay softmax → sparsemax trong cross-attention fusion | 1 tuần | Thấp |
 | 1 | Heterogeneous Graph | Xây đồ thị sinh học từ STRING PPI + miRTarBase + Manifest | 3 tuần | Trung bình |
 | 2 | GAT Encoder | Thay self-attention bằng Graph Attention Network | 5 tuần | Cao |
@@ -16,25 +13,25 @@
 
 ---
 
-### Tuần 1 (10-17/4) — Module 3: Sparse Cross-Attention
+## Tuần 1 (10-17/4) — Module 3: Sparse Cross-Attention
 
 | Ngày | Task | Deliverable |
-|------|------|-------------|
-| 1-2 | Đọc paper Sparsemax (Martins & Astudillo, ICML 2016) + α-entmax (Peters et al., ACL 2019) | Hiểu thuật toán projection onto simplex |
-| 3-4 | `pip install entmax`, thay `F.softmax` → `sparsemax` trong `CrossAttentionFusion` | Code chạy, train thành công |
-| 5-6 | Chạy ablation: softmax vs sparsemax vs α-entmax(1.5) | Bảng so sánh accuracy/F1 |
+| --- | --- | --- |
+| 1-2 | Đọc paper Sparsemax (Martins & Astudillo, 2016) | Hiểu thuật toán |
+| 3-4 | Cài đặt `entmax`, thay `F.softmax` → `sparsemax` | Code chạy, train thành công |
+| 5-6 | Chạy ablation: softmax vs sparsemax vs entmax | Bảng so sánh accuracy/F1 |
 | 7 | Viết kết quả, commit | ✅ **Milestone: Sparsemax done** |
 
 ---
 
-### Tuần 2-4 (17/4 - 8/5) — Module 1: Heterogeneous Graph
+## Tuần 2-4 (17/4 - 8/5) — Module 1: Heterogeneous Graph
 
 | Tuần | Task | Chi tiết |
-|------|------|---------|
-| T2 | Download + parse dữ liệu | STRING: `9606.protein.links.v12.0.txt.gz` (filter score≥700). miRTarBase: `hsa_MTI.xlsx` (validated interactions) |
-| T2-3 | Mapping gene ID | TCGA dùng ENSEMBL (ENSG), STRING dùng ENSP, miRTarBase dùng gene symbol. Dùng `pyensembl` hoặc `mygene` để convert |
-| T3 | CpG → Gene mapping | Parse `HumanMethylation450_manifest.csv` (có sẵn trong `data_original/annotation/`). Cột `UCSC_RefGene_Name` cho CpG→gene link |
-| T3-4 | Build PyG HeteroData | 3 node types: `gene`, `cpg`, `mirna`. Edge types: `(gene, ppi, gene)`, `(mirna, targets, gene)`, `(cpg, regulates, gene)` |
+| --- | --- | --- |
+| T2 | Download + parse dữ liệu | STRING: `links.txt` (score≥700). miRTarBase: `hsa_MTI.csv` |
+| T2-3 | Mapping gene ID | TCGA (ENSG) -> STRING (ENSP) -> miRTarBase (Symbol) |
+| T3 | CpG → Gene mapping | Parse `HumanMethylation450_manifest.csv` |
+| T3-4 | Build PyG HeteroData | Node types: `gene`, `cpg`, `mirna`. Edge types: `(gene, ppi, gene)`, `(mirna, targets, gene)`, `(cpg, regulates, gene)` |
 | T4 | Validate + thống kê | In số nodes, edges per type, degree distribution. Sanity check: gene count khớp với data |
 
 **Output**: `build_graph.py` + `data_graph/hetero_graph.pt`
@@ -43,26 +40,26 @@
 
 ---
 
-### Tuần 5-8 (8/5 - 10/6) — Module 2: GAT Encoder
+## Tuần 5-8 (8/5 - 10/6) — Module 2: GAT Encoder
 
 | Tuần | Task | Chi tiết |
-|------|------|---------|
-| T5 | Đọc GAT (Veličković, ICLR 2018) + GATv2 (Brody, ICLR 2022) | Hiểu attention coefficient α_ij |
-| T5-6 | **Pilot**: GAT chỉ trên gene modality | Thay `ModalityEncoder` gene bằng 2-layer GAT (PyG `GATConv`). So sánh accuracy |
-| T6-7 | HeteroGAT đầy đủ 3 modalities | Dùng `HeteroConv` wrapper: mỗi edge type có weight riêng |
-| T7 | Tích hợp với Module 3 | GAT output → Sparse Cross-Attention → Classifier. End-to-end training |
-| T8 | Tuning + ablation study | Số GAT layers (2-3), heads (4-8), hidden dim |
+| --- | --- | --- |
+| T5 | Đọc GATv2 (Brody, ICLR 2022) | Hiểu attention coefficient α_ij |
+| T5-6 | Pilot: GAT trên gene modality | Thay `ModalityEncoder` bằng GAT (PyG `GATConv`) |
+| T6-7 | HeteroGAT 3 modalities | Dùng `HeteroConv` wrapper |
+| T7 | Tích hợp với Module 3 | GAT output → Sparse Cross-Attention → Classifier |
+| T8 | Tuning + ablation study | Số GAT layers, heads, hidden dim |
 
 > **⚠️ CHECKPOINT QUYẾT ĐỊNH (cuối tuần 6):** Nếu pilot GAT trên gene đơn lẻ không chạy hoặc kết quả kém hơn baseline → **DỪNG Module 2**, chuyển sang Module 4. Report GAT như "hướng phát triển" trong luận văn.
 
 ---
 
-### Tuần 9-11 (11/6 - 1/7) — Module 4: SHAP + GSEA
+## Tuần 9-11 (11/6 - 1/7) — Module 4: SHAP + GSEA
 
 | Tuần | Task | Chi tiết |
-|------|------|---------|
-| T9 | Setup Captum | `pip install captum`. Wrap model cho `IntegratedGradients`. Chạy attribution trên test set (79 patients) |
-| T9-10 | Feature importance | Per-patient: top-50 gene, top-50 CpG, top-20 miRNA. Per-subtype: aggregate top features |
+| --- | --- | --- |
+| T9 | Setup Captum | Wrap model cho `IntegratedGradients` |
+| T9-10 | Feature importance | Top-50 gene, top-50 CpG, top-20 miRNA. Per-subtype: aggregate top features |
 | T10-11 | GSEA | `pip install gseapy`. Input top gene list → enrichment against KEGG/Reactome. Kỳ vọng: EBV+ → DNA methylation pathways, MSI → mismatch repair |
 | T11 | Case study | 2-3 bệnh nhân cụ thể: "Patient X phân loại MSI, top gene: MLH1, MSH2, MSH6 — đúng với literature" |
 
@@ -70,10 +67,10 @@
 
 ---
 
-### Tuần 6-12 (song song) — Viết luận văn
+## Tuần 6-12 (song song) — Viết luận văn
 
 | Tuần | Chương | Nội dung |
-|------|--------|---------|
+| --- | --- | --- |
 | T6-7 | Phương pháp | Mô tả 4 module, công thức toán, kiến trúc diagram |
 | T8-9 | Kết quả | Bảng so sánh, ablation study, confusion matrix |
 | T11 | Giải thích sinh học | GSEA results, case study, so sánh Liu et al. 2018 |
@@ -83,9 +80,9 @@
 
 ---
 
-### Cấu trúc thư mục dự kiến
+## Cấu trúc thư mục dự kiến
 
-```
+```text
 MoXGATE/
 ├── data_original/          ← dữ liệu gốc TCGA
 ├── data_final/             ← dữ liệu đã xử lý
@@ -107,7 +104,7 @@ MoXGATE/
 
 ---
 
-### Nguyên tắc an toàn
+## Nguyên tắc an toàn
 
 1. **Mỗi module commit riêng** — luôn giữ baseline chạy được
 2. **Checkpoint tuần 6** — quyết định tiếp Module 2 hay dừng
@@ -116,9 +113,9 @@ MoXGATE/
 
 ---
 
-### Baseline hiện tại
+## Baseline hiện tại
 
-```
+```text
 MoXGATE (original paper): 95% accuracy (paper claimed)
 MoXGATE (reimplemented):  92.4% accuracy
   - CIN:    96% recall (74 samples)
@@ -131,4 +128,3 @@ Fixes đã áp dụng:
   - Stratified val split (đảm bảo subtypes đại diện trong val)
   - α=1 đúng paper (Section 2.1.4)
 ```
-

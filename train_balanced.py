@@ -110,9 +110,11 @@ def train(args):
     plot_confusion_matrix(test_targets, test_preds, present_names, os.path.join(args.save_dir, "confusion_matrix_gi_balanced.png"))
     return test_metrics
 
+
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--runs", type=int, default=1, help="Số lần chạy tính trung bình")
     parser.add_argument("--data_dir", type=str, default=config.GI_FINAL_DIR)
     parser.add_argument("--save_dir", type=str, default=config.GI_CHECKPOINT_DIR)
     parser.add_argument("--epochs", type=int, default=100)
@@ -124,6 +126,7 @@ def parse_args():
     parser.add_argument("--test_ratio", type=float, default=0.2)
     parser.add_argument("--val_ratio", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--runs", type=int, default=1, help="Số lần chạy lấy trung bình trên Colab")
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -133,20 +136,14 @@ if __name__ == "__main__":
         metrics = {'accuracy': [], 'f1': [], 'precision': [], 'recall': []}
         base_seed = args.seed
         for i in range(args.runs):
-            print(f"
-{'='*50}
-RUN {i+1}/{args.runs}
-{'='*50}")
+            print(f"\n{'='*50}\nRUN {i+1}/{args.runs}\n{'='*50}")
             args.seed = base_seed + i
             res = train(args)
             if res:
                 for k in metrics:
                     if k in res: metrics[k].append(res[k])
         
-        print(f"
-{'='*50}
-FINAL RESULTS OVER {args.runs} RUNS
-{'='*50}")
+        print(f"\n{'='*50}\nFINAL RESULTS OVER {args.runs} RUNS\n{'='*50}")
         for k, v in metrics.items():
             if v:
                 print(f"{k.capitalize()}: {np.mean(v):.4f} ± {np.std(v):.4f}")

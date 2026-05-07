@@ -1,6 +1,6 @@
 import pandas as pd
 
-g = pd.read_csv("data_final/final_gene.csv", nrows=1)
+g = pd.read_csv("data_final/final_gene_symbol.csv", nrows=1)
 m = pd.read_csv("data_final/final_mirna.csv", nrows=1)
 c = pd.read_csv("data_final/final_methylation.csv", nrows=1)
 

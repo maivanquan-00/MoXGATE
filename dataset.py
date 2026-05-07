@@ -14,7 +14,7 @@ Normalization (tránh data leakage):
     StandardScaler.transform() → áp dụng cho cả train/val/test
 
 Input files (từ data_final/):
-    final_gene.csv           — (917, 19962) log2(TPM+1)
+    final_gene_symbol.csv           — (917, 19962) log2(TPM+1)
     final_mirna.csv          — (917, 1881)  log2(RPM+1)
     final_methylation.csv    — (917, 23111) beta [0, 1]
     final_labels.csv         — (917, 3)     Patient ID → Cancer_Type, Clean_Subtype, Target_Label
@@ -50,7 +50,7 @@ def load_data(data_dir: str):
     """
     print("[Dataset] Đọc dữ liệu từ:", data_dir)
 
-    gene   = pd.read_csv(os.path.join(data_dir, "final_gene.csv"),         index_col=0)
+    gene   = pd.read_csv(os.path.join(data_dir, "final_gene_symbol.csv"),         index_col=0)
     mirna  = pd.read_csv(os.path.join(data_dir, "final_mirna.csv"),        index_col=0)
     methyl = pd.read_csv(os.path.join(data_dir, "final_methylation.csv"),  index_col=0)
     labels = pd.read_csv(os.path.join(data_dir, "final_labels.csv"),       index_col=0)

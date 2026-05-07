@@ -18,7 +18,7 @@ Normalization (tránh data leakage):
     StandardScaler.transform() → áp dụng cho cả train/val/test
 
 Input files (từ data_final_brca/):
-    final_gene.csv           — (N, gene_features)  log2(TPM+1)
+    final_gene_symbol.csv           — (N, gene_features)  log2(TPM+1)
     final_mirna.csv          — (N, mirna_features) log2(RPM+1)
     final_methylation.csv    — (N, cpg_features)   beta [0, 1]
     final_labels.csv         — (N, 2)  Clean_Subtype, Target_Label
@@ -62,7 +62,7 @@ def load_data(data_dir: str):
     """
     print("[Dataset BRCA] Đọc dữ liệu từ:", data_dir)
 
-    gene   = pd.read_csv(os.path.join(data_dir, "final_gene.csv"),        index_col=0)
+    gene   = pd.read_csv(os.path.join(data_dir, "final_gene_symbol.csv"),        index_col=0)
     mirna  = pd.read_csv(os.path.join(data_dir, "final_mirna.csv"),       index_col=0)
     methyl = pd.read_csv(os.path.join(data_dir, "final_methylation.csv"), index_col=0)
     labels = pd.read_csv(os.path.join(data_dir, "final_labels.csv"),      index_col=0)

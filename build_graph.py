@@ -23,7 +23,7 @@ def build_hetero_graph(data_dir=config.GI_FINAL_DIR, save_path=None):
     
     print("\n--- 1. READING FEATURES HEADERS ---")
     # Read just the columns
-    with open(os.path.join(data_dir, "final_gene.csv"), "r") as f:
+    with open(os.path.join(data_dir, "final_gene_symbol.csv"), "r") as f:
         gene_cols = f.readline().strip().split(',')[1:] # skip Patient ID
     with open(os.path.join(data_dir, "final_mirna.csv"), "r") as f:
         mirna_cols = f.readline().strip().split(',')[1:]

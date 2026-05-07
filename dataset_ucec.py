@@ -13,7 +13,7 @@ Dataset module cho MoXGATE — UCEC (Uterine Corpus Endometrial Carcinoma).
 Split strategy: Stratified 80/10/10 (Train/Val/Test).
 
 Input files (từ data_final_ucec/):
-    final_gene.csv           — log2(TPM+1)
+    final_gene_symbol.csv           — log2(TPM+1)
     final_mirna.csv          — log2(RPM+1)
     final_methylation.csv    — beta values [0, 1]
     final_labels.csv         — Patient ID, Cancer_Type, Target_Label
@@ -44,7 +44,7 @@ NUM_CLASSES_UCEC = 4
 def load_data(data_dir: str):
     print(f"[Dataset UCEC] Đọc dữ liệu từ: {data_dir}")
 
-    gene   = pd.read_csv(os.path.join(data_dir, "final_gene.csv"),         index_col=0)
+    gene   = pd.read_csv(os.path.join(data_dir, "final_gene_symbol.csv"),         index_col=0)
     mirna  = pd.read_csv(os.path.join(data_dir, "final_mirna.csv"),        index_col=0)
     methyl = pd.read_csv(os.path.join(data_dir, "final_methylation.csv"),  index_col=0)
     labels = pd.read_csv(os.path.join(data_dir, "final_labels.csv"),       index_col=0)

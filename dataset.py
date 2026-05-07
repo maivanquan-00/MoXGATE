@@ -79,14 +79,15 @@ def load_data(data_dir: str):
 
 def split_data(cancer_types: np.ndarray, labels: np.ndarray, val_ratio: float = 0.1, test_ratio: float = 0.2, seed: int = 42):
     """
-    Gộp toàn bộ GIAC (COAD, READ, STAD, ESCA) và chia Train 70% / Val 10% / Test 20%.
-    Đảm bảo StratifiedShuffleSplit phân đều tỷ lệ các nhóm.
+    Chia indices thành train / val / test theo strategy của paper gốc.
+    Test  = ESCA (fixed — không random)
+    Train/Val = COAD+READ+STAD, stratified split.
     
     Args:
         cancer_types: array string Cancer_Type cho mỗi sample
         labels:       array int Target_Label — dùng cho stratified split
-        val_ratio:    Tỉ lệ validation trên TỔNG DATA (mặc định 0.1)
-        test_ratio:   Tỉ lệ test trên TỔNG DATA (mặc định 0.2)
+        val_ratio:    Tỉ lệ validation trên phần Train_Val (mặc định 0.1)
+        test_ratio:   (Ignored) Tùy chọn test_ratio được bỏ qua vì test = ESCA.
         seed:         Random seed để reproducibility
 
     Returns:
@@ -95,20 +96,22 @@ def split_data(cancer_types: np.ndarray, labels: np.ndarray, val_ratio: float = 
     np.random.seed(seed)
     all_idx = np.arange(len(labels))
 
-    # Stage 1: Tách Test set (20%)
-    sss_test = StratifiedShuffleSplit(n_splits=1, test_size=test_ratio, random_state=seed)
-    train_val_idx, test_idx = next(sss_test.split(all_idx, labels))
+    # Stage 1: Tách Test set là toàn bộ các sample ESCA
+    test_mask = (cancer_types == 'ESCA')
+    test_idx = all_idx[test_mask]
 
-    # Stage 2: Tách Val set từ phần còn lại (Train_Val).
-    # val_ratio so với phần còn lại = 0.1 / (1 - 0.2) = 0.125
-    relative_val_ratio = val_ratio / (1.0 - test_ratio)
-    sss_val = StratifiedShuffleSplit(n_splits=1, test_size=relative_val_ratio, random_state=seed)
-    train_idx_rel, val_idx_rel = next(sss_val.split(train_val_idx, labels[train_val_idx]))
+    # Phần còn lại (COAD, READ, STAD) dùng cho Train và Val
+    train_val_idx = all_idx[~test_mask]
+    train_val_labels = labels[train_val_idx]
+
+    # Stage 2: Tách Val set từ phần còn lại bằng StratifiedShuffleSplit
+    sss_val = StratifiedShuffleSplit(n_splits=1, test_size=val_ratio, random_state=seed)
+    train_idx_rel, val_idx_rel = next(sss_val.split(train_val_idx, train_val_labels))
 
     train_idx = train_val_idx[train_idx_rel]
     val_idx   = train_val_idx[val_idx_rel]
 
-    print(f"[Dataset] Pooled Split — Train: {len(train_idx)}, Val: {len(val_idx)}, Test: {len(test_idx)}")
+    print(f"[Dataset] Paper Split — Train: {len(train_idx)}, Val: {len(val_idx)}, Test (ESCA): {len(test_idx)}")
     return train_idx, val_idx, test_idx
 
 

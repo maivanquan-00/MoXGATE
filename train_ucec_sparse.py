@@ -59,7 +59,8 @@ def evaluate(model, loader, device):
     return {
         "loss":      total_loss / len(loader),
         "accuracy":  accuracy_score(all_targets, all_preds),
-        "f1":        f1_score(all_targets, all_preds, average="weighted", zero_division=0),
+        "weighted_f1": f1_score(all_targets, all_preds, average="weighted", zero_division=0),
+        "macro_f1":    f1_score(all_targets, all_preds, average="macro", zero_division=0),
         "precision": precision_score(all_targets, all_preds, average="weighted", zero_division=0),
         "recall":    recall_score(all_targets, all_preds, average="weighted", zero_division=0),
     }, all_preds, all_targets
@@ -116,7 +117,7 @@ def train(args):
 
         print(f"Epoch {epoch:3d}/{args.epochs} | "
               f"Train Loss: {epoch_loss/len(train_loader):.4f} | "
-              f"Val Acc: {val_metrics['accuracy']:.4f} | Val F1: {val_metrics['f1']:.4f} | "
+              f"Val Acc: {val_metrics['accuracy']:.4f} | Val W-F1: {val_metrics['weighted_f1']:.4f} | Val M-F1: {val_metrics['macro_f1']:.4f} | "
               f"G={w_dict['Gene']:.2f} M={w_dict['miRNA']:.2f} C={w_dict['Methylation']:.2f} | "
               f"{time.time()-t0:.1f}s")
 
@@ -149,7 +150,8 @@ def train(args):
     print("  ĐÁNH GIÁ TEST SET (UCEC Sparsemax)")
     print(f"{'─'*60}")
     print(f"\nTest Accuracy : {test_metrics['accuracy']:.4f}")
-    print(f"Test F1       : {test_metrics['f1']:.4f}")
+    print(f"Test Weighted F1: {test_metrics['weighted_f1']:.4f}")
+    print(f"Test Macro F1   : {test_metrics['macro_f1']:.4f}")
     print(f"\nModality weights (Sparsemax): {model.get_modality_weights()}")
     print(f"\n{classification_report(test_targets, test_preds, labels=present_labels, target_names=present_names, zero_division=0)}")
 
@@ -160,7 +162,7 @@ def train(args):
         json.dump(history, f, indent=2)
 
     print(f"\n{'★'*60}")
-    print(f"  HOÀN TẤT UCEC Sparse — Val Acc: {best_val_acc:.4f} | Test Acc: {test_metrics['accuracy']:.4f} | Test F1: {test_metrics['f1']:.4f}")
+    print(f"  HOÀN TẤT UCEC Sparse — Val Acc: {best_val_acc:.4f} | Test Acc: {test_metrics['accuracy']:.4f} | Test F1: {test_metrics['weighted_f1']:.4f}")
     print(f"{'★'*60}")
     return test_metrics
 
@@ -189,7 +191,7 @@ if __name__ == "__main__":
     args = parse_args()
     if args.runs > 1:
         import numpy as np
-        metrics = {'accuracy': [], 'f1': [], 'precision': [], 'recall': []}
+        metrics = {'accuracy': [], 'weighted_f1': [], 'macro_f1': [], 'precision': [], 'recall': []}
         base_seed = args.seed
         for i in range(args.runs):
             print(f"\n{'='*50}\nRUN {i+1}/{args.runs}\n{'='*50}")
@@ -202,6 +204,7 @@ if __name__ == "__main__":
         print(f"\n{'='*50}\nFINAL RESULTS OVER {args.runs} RUNS\n{'='*50}")
         for k, v in metrics.items():
             if v:
-                print(f"{k.capitalize()}: {np.mean(v):.4f} ± {np.std(v):.4f}")
+                name_map = {"accuracy": "Accuracy", "weighted_f1": "Weighted F1", "macro_f1": "Macro F1", "precision": "Precision", "recall": "Recall"}
+                print(f"{name_map.get(k, k.capitalize())}: {np.mean(v):.4f} ± {np.std(v):.4f}")
     else:
         train(args)

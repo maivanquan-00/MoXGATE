@@ -55,7 +55,8 @@ def evaluate(model, loader, device):
     return {
         "loss":      total_loss / len(loader),
         "accuracy":  accuracy_score(all_targets, all_preds),
-        "f1":        f1_score(all_targets, all_preds, average="weighted", zero_division=0),
+        "weighted_f1": f1_score(all_targets, all_preds, average="weighted", zero_division=0),
+        "macro_f1":    f1_score(all_targets, all_preds, average="macro", zero_division=0),
         "precision": precision_score(all_targets, all_preds, average="weighted", zero_division=0),
         "recall":    recall_score(all_targets, all_preds, average="weighted", zero_division=0),
     }, all_preds, all_targets
@@ -156,7 +157,7 @@ def train(args):
     present_labels = sorted(np.unique(np.concatenate([test_targets, test_preds])))
     present_names = [GI_SUBTYPE_NAMES[i] for i in present_labels]
 
-    print(f"\n[HeteroMoXGATE Result - GI] Accuracy: {test_metrics['accuracy']:.4f} | F1: {test_metrics['f1']:.4f}")
+    print(f"\n[HeteroMoXGATE Result - GI] Accuracy: {test_metrics['accuracy']:.4f} | F1: {test_metrics['weighted_f1']:.4f}")
     print(f"Classification Report:\n{classification_report(test_targets, test_preds, labels=present_labels, target_names=present_names, zero_division=0)}")
     
     cm_path = os.path.join(args.save_dir, "confusion_matrix_heterogat.png")
@@ -189,7 +190,7 @@ if __name__ == "__main__":
     args = parse_args()
     if args.runs > 1:
         import numpy as np
-        metrics = {'accuracy': [], 'f1': [], 'precision': [], 'recall': []}
+        metrics = {'accuracy': [], 'weighted_f1': [], 'macro_f1': [], 'precision': [], 'recall': []}
         base_seed = args.seed
         for i in range(args.runs):
             print(f"\n{'='*50}\nRUN {i+1}/{args.runs}\n{'='*50}")
@@ -202,6 +203,7 @@ if __name__ == "__main__":
         print(f"\n{'='*50}\nFINAL RESULTS OVER {args.runs} RUNS\n{'='*50}")
         for k, v in metrics.items():
             if v:
-                print(f"{k.capitalize()}: {np.mean(v):.4f} ± {np.std(v):.4f}")
+                name_map = {"accuracy": "Accuracy", "weighted_f1": "Weighted F1", "macro_f1": "Macro F1", "precision": "Precision", "recall": "Recall"}
+                print(f"{name_map.get(k, k.capitalize())}: {np.mean(v):.4f} ± {np.std(v):.4f}")
     else:
         train(args)

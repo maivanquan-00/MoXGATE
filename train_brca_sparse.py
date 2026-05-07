@@ -162,9 +162,11 @@ def train(args):
 
     with open(os.path.join(args.save_dir, "history_brca_sparse.json"), "w") as f: json.dump(history, f, indent=2)
     print(f"\nFinal Weights (Sparsemax): {model.get_modality_weights()}")
+    return test_metrics
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--runs", type=int, default=1, help="Số lần chạy tính trung bình")
     parser.add_argument("--data_dir", type=str, default=config.BRCA_FINAL_DIR)
     parser.add_argument("--save_dir", type=str, default=config.BRCA_CHECKPOINT_DIR)
     parser.add_argument("--epochs", type=int, default=config.DEFAULT_EPOCHS)
@@ -181,4 +183,28 @@ def parse_args():
     return parser.parse_args()
 
 if __name__ == "__main__":
-    train(parse_args())
+    args = parse_args()
+    if args.runs > 1:
+        import numpy as np
+        metrics = {'accuracy': [], 'f1': [], 'precision': [], 'recall': []}
+        base_seed = args.seed
+        for i in range(args.runs):
+            print(f"
+{'='*50}
+RUN {i+1}/{args.runs}
+{'='*50}")
+            args.seed = base_seed + i
+            res = train(args)
+            if res:
+                for k in metrics:
+                    if k in res: metrics[k].append(res[k])
+        
+        print(f"
+{'='*50}
+FINAL RESULTS OVER {args.runs} RUNS
+{'='*50}")
+        for k, v in metrics.items():
+            if v:
+                print(f"{k.capitalize()}: {np.mean(v):.4f} ± {np.std(v):.4f}")
+    else:
+        train(args)

@@ -1,0 +1,236 @@
+"""
+train_kfold.py
+==============
+Script chạy 5-Fold Cross Validation trên nhiều Global Seeds cho mô hình MoXGATE.
+Áp dụng chung cho tất cả dataset (GI, BRCA, KIPAN, UCEC, v.v.).
+
+Cơ chế:
+  - Outer loop: Duyệt qua danh sách Seeds (ví dụ: 42, 123, 2024).
+  - K-Fold: Dùng StratifiedKFold (n_splits=5, random_state=seed).
+    -> Đảm bảo cách chia fold CÙNG splits qua các mô hình khác (nếu dùng chung seed).
+  - Validation: Cắt 10% từ tập Train của fold đó để làm Early Stopping.
+  - Scaling: Fit StandardScaler trên TẬP TRAIN, transform Train/Val/Test.
+  - Metrics: Ưu tiên in và lưu F1-Macro, sau đó đến F1-Weighted và Accuracy.
+"""
+
+import os
+import argparse
+import time
+import json
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report
+
+from model import MoXGATE
+
+class OmicsDataset(Dataset):
+    def __init__(self, gene, mirna, methyl, labels, indices=None):
+        if indices is not None:
+            self.gene   = torch.tensor(gene[indices],   dtype=torch.float32)
+            self.mirna  = torch.tensor(mirna[indices],  dtype=torch.float32)
+            self.methyl = torch.tensor(methyl[indices], dtype=torch.float32)
+            self.labels = torch.tensor(labels[indices], dtype=torch.long)
+        else:
+            self.gene   = torch.tensor(gene,   dtype=torch.float32)
+            self.mirna  = torch.tensor(mirna,  dtype=torch.float32)
+            self.methyl = torch.tensor(methyl, dtype=torch.float32)
+            self.labels = torch.tensor(labels, dtype=torch.long)
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        return self.gene[idx], self.mirna[idx], self.methyl[idx], self.labels[idx]
+
+def load_all_data(data_dir):
+    print(f"\n[Data] Loading from: {data_dir}")
+    gene   = pd.read_csv(os.path.join(data_dir, "final_gene_symbol.csv"), index_col=0)
+    mirna  = pd.read_csv(os.path.join(data_dir, "final_mirna.csv"), index_col=0)
+    methyl = pd.read_csv(os.path.join(data_dir, "final_methylation.csv"), index_col=0)
+    labels = pd.read_csv(os.path.join(data_dir, "final_labels.csv"), index_col=0)
+
+    # Đảm bảo index khớp
+    assert list(gene.index) == list(mirna.index) == list(methyl.index) == list(labels.index), "Index mismatch!"
+    
+    X_gene = gene.values.astype(np.float32)
+    X_mirna = mirna.values.astype(np.float32)
+    X_methyl = methyl.values.astype(np.float32)
+    y = labels["Target_Label"].values.astype(np.int64)
+    
+    dims = {
+        "gene": X_gene.shape[1],
+        "mirna": X_mirna.shape[1],
+        "methyl": X_methyl.shape[1]
+    }
+    
+    print(f"[Data] Samples: {len(y)} | Gene_Dim: {dims['gene']} | MiRNA_Dim: {dims['mirna']} | Methyl_Dim: {dims['methyl']}")
+    return X_gene, X_mirna, X_methyl, y, dims
+
+@torch.no_grad()
+def evaluate(model, loader, device):
+    model.eval()
+    all_preds, all_targets, total_loss = [], [], 0.0
+
+    for gene, mirna, methyl, labels in loader:
+        gene, mirna, methyl, labels = gene.to(device), mirna.to(device), methyl.to(device), labels.to(device)
+        logits, w = model(gene, mirna, methyl)
+        loss, _   = model.compute_loss(logits, labels, w)
+
+        total_loss += loss.item()
+        preds = logits.argmax(dim=1).cpu().numpy()
+        all_preds.extend(preds)
+        all_targets.extend(labels.cpu().numpy())
+
+    all_preds   = np.array(all_preds)
+    all_targets = np.array(all_targets)
+
+    metrics = {
+        "loss": total_loss / len(loader),
+        "accuracy": accuracy_score(all_targets, all_preds),
+        "macro_f1": f1_score(all_targets, all_preds, average="macro", zero_division=0),
+        "weighted_f1": f1_score(all_targets, all_preds, average="weighted", zero_division=0)
+    }
+    return metrics, all_targets, all_preds
+
+def train_fold(seed, fold, train_idx, val_idx, test_idx, data, dims, args, device):
+    X_g, X_mi, X_me, y = data
+    
+    # 1. StandardScaler (chỉ fit trên train)
+    scaler_g  = StandardScaler().fit(X_g[train_idx])
+    scaler_mi = StandardScaler().fit(X_mi[train_idx])
+    scaler_me = StandardScaler().fit(X_me[train_idx])
+    
+    X_g_scaled  = scaler_g.transform(X_g)
+    X_mi_scaled = scaler_mi.transform(X_mi)
+    X_me_scaled = scaler_me.transform(X_me)
+    
+    # 2. Dataset & DataLoader
+    train_loader = DataLoader(OmicsDataset(X_g_scaled, X_mi_scaled, X_me_scaled, y, train_idx), batch_size=args.batch_size, shuffle=True)
+    val_loader   = DataLoader(OmicsDataset(X_g_scaled, X_mi_scaled, X_me_scaled, y, val_idx), batch_size=args.batch_size, shuffle=False)
+    test_loader  = DataLoader(OmicsDataset(X_g_scaled, X_mi_scaled, X_me_scaled, y, test_idx), batch_size=args.batch_size, shuffle=False)
+    
+    # 3. Model init (đặt seed cho torch trùng với seed param)
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    
+    model = MoXGATE(gene_dim=dims["gene"], mirna_dim=dims["mirna"], methyl_dim=dims["methyl"]).to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    
+    best_val_loss = float("inf")
+    best_weights = None
+    patience_counter = 0
+    
+    for epoch in range(1, args.epochs + 1):
+        model.train()
+        for gene, mirna, methyl, labels in train_loader:
+            gene, mirna, methyl, labels = gene.to(device), mirna.to(device), methyl.to(device), labels.to(device)
+            optimizer.zero_grad()
+            logits, w = model(gene, mirna, methyl)
+            loss, _ = model.compute_loss(logits, labels, w, lambda1=args.lambda1, lambda2=args.lambda2)
+            loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            
+        val_metrics, _, _ = evaluate(model, val_loader, device)
+        
+        if val_metrics["loss"] < best_val_loss:
+            best_val_loss = val_metrics["loss"]
+            best_weights = model.state_dict()
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            if patience_counter >= args.patience:
+                break
+                
+    # 4. Evaluate Test Set
+    model.load_state_dict(best_weights)
+    test_metrics, test_targets, test_preds = evaluate(model, test_loader, device)
+    
+    return test_metrics
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_dir", type=str, required=True, help="Path to data_final_xxx")
+    parser.add_argument("--save_path", type=str, default="kfold_results.json")
+    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--weight_decay", type=float, default=1e-2)
+    parser.add_argument("--lambda1", type=float, default=0.01)
+    parser.add_argument("--lambda2", type=float, default=1e-4)
+    parser.add_argument("--patience", type=int, default=15)
+    parser.add_argument("--test_mode", action="store_true", help="Chạy 1 fold cho mục đích test code nhanh")
+    args = parser.parse_args()
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device}")
+    
+    # Load dataset gộp cứng (GIAC, BRCA, KIPAN...) như nhau
+    data_tuple = load_all_data(args.data_dir)
+    _, _, _, y, dims = data_tuple
+    
+    seeds = [42, 123, 2024]
+    all_results = []
+    
+    for seed in seeds:
+        print(f"\n{'='*50}\nRUNNING SEED: {seed}\n{'='*50}")
+        # Cố định random splits như các model khác
+        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
+        
+        seed_metrics = []
+        for fold, (train_val_idx, test_idx) in enumerate(skf.split(np.zeros(len(y)), y), 1):
+            print(f"  -> Fold {fold}/5 ... ", end="")
+            
+            # Tách Val (10% của đoạn train_val_idx)
+            sss = StratifiedShuffleSplit(n_splits=1, test_size=0.1, random_state=seed)
+            train_rel_idx, val_rel_idx = next(sss.split(train_val_idx, y[train_val_idx]))
+            
+            train_idx = train_val_idx[train_rel_idx]
+            val_idx   = train_val_idx[val_rel_idx]
+            
+            test_metrics = train_fold(seed, fold, train_idx, val_idx, test_idx, data_tuple[:-1], dims, args, device)
+            
+            # Primary metric in ra: F1-Macro
+            print(f"Test F1-Macro: {test_metrics['macro_f1']:.4f} | F1-Weighted: {test_metrics['weighted_f1']:.4f} | Acc: {test_metrics['accuracy']:.4f}")
+            seed_metrics.append(test_metrics)
+            
+            if args.test_mode:  # Dành cho user check code 1-2 fold (tiết kiệm compute)
+                print("    [!] TEST MODE DỪNG SỚM.")
+                break
+        
+        avg_macro = np.mean([x["macro_f1"] for x in seed_metrics])
+        avg_weight = np.mean([x["weighted_f1"] for x in seed_metrics])
+        avg_acc = np.mean([x["accuracy"] for x in seed_metrics])
+        
+        print(f"\n>>> SEED {seed} AVERAGE | F1-Macro: {avg_macro:.4f} | F1-Weighted: {avg_weight:.4f} <<<")
+        
+        all_results.append({
+            "seed": seed,
+            "folds": seed_metrics,
+            "avg_macro_f1": avg_macro,
+            "avg_weighted_f1": avg_weight,
+            "avg_accuracy": avg_acc
+        })
+        
+        if args.test_mode:
+            break
+
+    # Final Overall (15 runs)
+    print(f"\n{'*'*50}")
+    print("HOÀN TẤT TẤT CẢ SEEDS (15 RUNS)")
+    overall_macro = np.mean([r["avg_macro_f1"] for r in all_results])
+    overall_weight = np.mean([r["avg_weighted_f1"] for r in all_results])
+    print(f"OVERALL FINAL F1-MACRO: {overall_macro:.4f}")
+    print(f"OVERALL FINAL F1-WEIGHTED: {overall_weight:.4f}")
+    
+    with open(args.save_path, "w") as f:
+        json.dump(all_results, f, indent=2)
+    print(f"Results saved to {args.save_path}")
+
+if __name__ == "__main__":
+    main()

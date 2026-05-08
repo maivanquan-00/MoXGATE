@@ -206,7 +206,7 @@ def main():
             
             test_metrics = train_fold(seed, fold, train_idx, val_idx, test_idx, data_tuple[:-1], dims, args, device)
             
-            print(f"Test F1-Mac: {test_metrics['macro_f1']:.4f} | F1-Wei: {test_metrics['weighted_f1']:.4f} | Acc: {test_metrics['accuracy']:.4f} | Precision-Macro: {test_metrics['macro_precision']:.4f} | Recall-Macro: {test_metrics['macro_recall']:.4f}")
+            print(f"Test F1-Macro: {test_metrics['macro_f1']:.4f} | F1-Weighted: {test_metrics['weighted_f1']:.4f} | Accuracy: {test_metrics['accuracy']:.4f} | Precision-Macro: {test_metrics['macro_precision']:.4f} | Recall-Macro: {test_metrics['macro_recall']:.4f}")
             seed_metrics.append(test_metrics)
             
             if args.test_mode:  # Dành cho user check code 1-2 fold (tiết kiệm compute)
@@ -225,11 +225,11 @@ def main():
         std_rec = np.std([x["macro_recall"] for x in seed_metrics])
         
         print(f"\n>>> SEED {seed} AVERAGE ± STD <<<")
-        print(f"  F1-Macro   : {avg_macro:.4f} ± {std_macro:.4f}")
-        print(f"  F1-Weighted: {avg_weight:.4f} ± {std_weight:.4f}")
-        print(f"  Accuracy   : {avg_acc:.4f} ± {std_acc:.4f}")
+        print(f"  F1-Macro         : {avg_macro:.4f} ± {std_macro:.4f}")
+        print(f"  F1-Weighted      : {avg_weight:.4f} ± {std_weight:.4f}")
+        print(f"  Accuracy         : {avg_acc:.4f} ± {std_acc:.4f}")
         print(f"  Precision-Macro  : {avg_pre:.4f} ± {std_pre:.4f}")
-        print(f"  Recall-Macro  : {avg_rec:.4f} ± {std_rec:.4f}")
+        print(f"  Recall-Macro     : {avg_rec:.4f} ± {std_rec:.4f}")
         
         all_results.append({
             "seed": seed,
@@ -265,11 +265,11 @@ def main():
     sd_rec = np.std([x["macro_recall"] for x in all_folds_metrics])
 
     print("OVERALL FINAL METRICS (Mean ± Std):")
-    print(f"  F1-Macro   : {ov_mac:.4f} ± {sd_mac:.4f}")
-    print(f"  F1-Weighted: {ov_wei:.4f} ± {sd_wei:.4f}")
-    print(f"  Accuracy   : {ov_acc:.4f} ± {sd_acc:.4f}")
+    print(f"  F1-Macro         : {ov_mac:.4f} ± {sd_mac:.4f}")
+    print(f"  F1-Weighted      : {ov_wei:.4f} ± {sd_wei:.4f}")
+    print(f"  Accuracy         : {ov_acc:.4f} ± {sd_acc:.4f}")
     print(f"  Precision-Macro  : {ov_pre:.4f} ± {sd_pre:.4f}")
-    print(f"  Recall-Macro  : {ov_rec:.4f} ± {sd_rec:.4f}")
+    print(f"  Recall-Macro     : {ov_rec:.4f} ± {sd_rec:.4f}")
     
     with open(args.save_path, "w") as f:
         json.dump(all_results, f, indent=2)

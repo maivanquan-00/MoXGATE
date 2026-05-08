@@ -26,6 +26,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, classification_report
 
+import config
 from model import MoXGATE
 
 class OmicsDataset(Dataset):
@@ -170,6 +171,12 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
     
+    # Cập nhật đường dẫn tự động qua config (hỗ trợ Colab)
+    if not os.path.isabs(args.data_dir):
+        args.data_dir = os.path.join(config.BASE_DIR, args.data_dir)
+    if not os.path.isabs(args.save_path):
+        args.save_path = os.path.join(config.BASE_DIR, args.save_path)
+
     # Load dataset gộp cứng (GIAC, BRCA, KIPAN...) như nhau
     data_tuple = load_all_data(args.data_dir)
     _, _, _, y, dims = data_tuple

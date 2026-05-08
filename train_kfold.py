@@ -94,7 +94,11 @@ def evaluate(model, loader, device):
         "loss": total_loss / len(loader),
         "accuracy": accuracy_score(all_targets, all_preds),
         "macro_f1": f1_score(all_targets, all_preds, average="macro", zero_division=0),
-        "weighted_f1": f1_score(all_targets, all_preds, average="weighted", zero_division=0)
+        "weighted_f1": f1_score(all_targets, all_preds, average="weighted", zero_division=0),
+        "macro_precision": precision_score(all_targets, all_preds, average="macro", zero_division=0),
+        "weighted_precision": precision_score(all_targets, all_preds, average="weighted", zero_division=0),
+        "macro_recall": recall_score(all_targets, all_preds, average="macro", zero_division=0),
+        "weighted_recall": recall_score(all_targets, all_preds, average="weighted", zero_division=0)
     }
     return metrics, all_targets, all_preds
 
@@ -202,8 +206,7 @@ def main():
             
             test_metrics = train_fold(seed, fold, train_idx, val_idx, test_idx, data_tuple[:-1], dims, args, device)
             
-            # Primary metric in ra: F1-Macro
-            print(f"Test F1-Macro: {test_metrics['macro_f1']:.4f} | F1-Weighted: {test_metrics['weighted_f1']:.4f} | Acc: {test_metrics['accuracy']:.4f}")
+            print(f"Test F1-Mac: {test_metrics['macro_f1']:.4f} | F1-Wei: {test_metrics['weighted_f1']:.4f} | Acc: {test_metrics['accuracy']:.4f} | Precision-Macro: {test_metrics['macro_precision']:.4f} | Recall-Macro: {test_metrics['macro_recall']:.4f}")
             seed_metrics.append(test_metrics)
             
             if args.test_mode:  # Dành cho user check code 1-2 fold (tiết kiệm compute)
@@ -211,17 +214,31 @@ def main():
                 break
         
         avg_macro = np.mean([x["macro_f1"] for x in seed_metrics])
+        std_macro = np.std([x["macro_f1"] for x in seed_metrics])
         avg_weight = np.mean([x["weighted_f1"] for x in seed_metrics])
+        std_weight = np.std([x["weighted_f1"] for x in seed_metrics])
         avg_acc = np.mean([x["accuracy"] for x in seed_metrics])
+        std_acc = np.std([x["accuracy"] for x in seed_metrics])
+        avg_pre = np.mean([x["macro_precision"] for x in seed_metrics])
+        std_pre = np.std([x["macro_precision"] for x in seed_metrics])
+        avg_rec = np.mean([x["macro_recall"] for x in seed_metrics])
+        std_rec = np.std([x["macro_recall"] for x in seed_metrics])
         
-        print(f"\n>>> SEED {seed} AVERAGE | F1-Macro: {avg_macro:.4f} | F1-Weighted: {avg_weight:.4f} <<<")
+        print(f"\n>>> SEED {seed} AVERAGE ± STD <<<")
+        print(f"  F1-Macro   : {avg_macro:.4f} ± {std_macro:.4f}")
+        print(f"  F1-Weighted: {avg_weight:.4f} ± {std_weight:.4f}")
+        print(f"  Accuracy   : {avg_acc:.4f} ± {std_acc:.4f}")
+        print(f"  Precision-Macro  : {avg_pre:.4f} ± {std_pre:.4f}")
+        print(f"  Recall-Macro  : {avg_rec:.4f} ± {std_rec:.4f}")
         
         all_results.append({
             "seed": seed,
             "folds": seed_metrics,
-            "avg_macro_f1": avg_macro,
-            "avg_weighted_f1": avg_weight,
-            "avg_accuracy": avg_acc
+            "avg_macro_f1": avg_macro, "std_macro_f1": std_macro,
+            "avg_weighted_f1": avg_weight, "std_weighted_f1": std_weight,
+            "avg_accuracy": avg_acc, "std_accuracy": std_acc,
+            "avg_macro_precision": avg_pre, "std_macro_precision": std_pre,
+            "avg_macro_recall": avg_rec, "std_macro_recall": std_rec
         })
         
         if args.test_mode:
@@ -230,10 +247,29 @@ def main():
     # Final Overall (15 runs)
     print(f"\n{'*'*50}")
     print("HOÀN TẤT TẤT CẢ SEEDS (15 RUNS)")
-    overall_macro = np.mean([r["avg_macro_f1"] for r in all_results])
-    overall_weight = np.mean([r["avg_weighted_f1"] for r in all_results])
-    print(f"OVERALL FINAL F1-MACRO: {overall_macro:.4f}")
-    print(f"OVERALL FINAL F1-WEIGHTED: {overall_weight:.4f}")
+    
+    all_folds_metrics = [f for r in all_results for f in r["folds"]]
+    ov_mac = np.mean([x["macro_f1"] for x in all_folds_metrics])
+    sd_mac = np.std([x["macro_f1"] for x in all_folds_metrics])
+    
+    ov_wei = np.mean([x["weighted_f1"] for x in all_folds_metrics])
+    sd_wei = np.std([x["weighted_f1"] for x in all_folds_metrics])
+    
+    ov_acc = np.mean([x["accuracy"] for x in all_folds_metrics])
+    sd_acc = np.std([x["accuracy"] for x in all_folds_metrics])
+    
+    ov_pre = np.mean([x["macro_precision"] for x in all_folds_metrics])
+    sd_pre = np.std([x["macro_precision"] for x in all_folds_metrics])
+    
+    ov_rec = np.mean([x["macro_recall"] for x in all_folds_metrics])
+    sd_rec = np.std([x["macro_recall"] for x in all_folds_metrics])
+
+    print("OVERALL FINAL METRICS (Mean ± Std):")
+    print(f"  F1-Macro   : {ov_mac:.4f} ± {sd_mac:.4f}")
+    print(f"  F1-Weighted: {ov_wei:.4f} ± {sd_wei:.4f}")
+    print(f"  Accuracy   : {ov_acc:.4f} ± {sd_acc:.4f}")
+    print(f"  Precision-Macro  : {ov_pre:.4f} ± {sd_pre:.4f}")
+    print(f"  Recall-Macro  : {ov_rec:.4f} ± {sd_rec:.4f}")
     
     with open(args.save_path, "w") as f:
         json.dump(all_results, f, indent=2)

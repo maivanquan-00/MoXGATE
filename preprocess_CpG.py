@@ -1,13 +1,11 @@
 """
 preprocess_CpG.py
 =================
-Xử lý dữ liệu DNA Methylation (CpG) từ TCGA cho GIAC dataset.
+Xử lý dữ liệu DNA Methylation (CpG) từ TCGA/GDC cho các dataset của dự án.
 
 Nguồn dữ liệu:
-    TCGA — Illumina Human Methylation 27k và 450k (qua GDC hoặc UCSC Xena hub)
-    Xena dataset IDs:
-        - HumanMethylation27   (TCGA.<cohort>.sampleMap/HumanMethylation27)
-        - HumanMethylation450  (TCGA.<cohort>.sampleMap/HumanMethylation450)
+    TCGA — Illumina Human Methylation 27k và 450k (qua GDC)
+    Ví dụ LGG: TCGA-LGG.methylation450.tsv
     Cả 2 nguồn đều cung cấp beta values trong [0, 1] → pipeline xử lý giống nhau.
 
 Đặc thù của Methylation:
@@ -24,7 +22,7 @@ Pipeline:
     │   0b. HumanMethylation450_manifest.csv — Illumina               │
     │       Lấy danh sách probes trên chrX, chrY → bias giới tính     │
     ├─────────────────────────────────────────────────────────────────┤
-    │ BƯỚC 1 — Xử lý từng file TSV (27k + 450k, 4 cancer types)       │
+    │ BƯỚC 1 — Xử lý từng file TSV (27k + 450k, các cohort)           │
     │   1a. Lọc mẫu khối u nguyên phát: barcode[13:15] == '01'        │
     │   1b. Rút gọn barcode → 12 ký tự Patient ID                     │
     │   1c. Loại bỏ bệnh nhân trùng lặp (giữ Vial A = first)          │

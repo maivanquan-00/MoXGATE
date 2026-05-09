@@ -80,7 +80,7 @@ if __name__ == "__main__":
 
     print("\nXử lý hoàn tất! 5 dòng đầu tiên:")
     print(final_labels.head())
-    print(f"\nPhân bố subtype:\n{final_labels['Clean_Subtype'].value_counts().to_string()}")
+    print(f"\nPhân bố subtype:\n{final_labels['Subtype'].value_counts().to_string()}")
 
     # Lưu ra file CSV để các file khác đọc lại
     os.makedirs(os.path.dirname(args.output_path), exist_ok=True)

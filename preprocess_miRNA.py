@@ -1,14 +1,14 @@
 """
 preprocess_miRNA.py
 ===================
-Xử lý dữ liệu miRNA Expression từ UCSC Xena hub cho GIAC dataset.
+Xử lý dữ liệu miRNA Expression từ TCGA/GDC cho các dataset của dự án.
 
 Nguồn dữ liệu:
-    UCSC Xena — TCGA.<cohort>.sampleMap/miRNA_HiSeq_gene
-    Dataset ID: miRNA mature strand expression RNAseq (IlluminaHiSeq)
-    Platform:   IlluminaHiSeq miRNA-Seq
+    GDC / TCGA miRNA TSV (ví dụ LGG: TCGA-LGG.mirna.tsv)
+    Dataset ID: stem loop expression
+    Platform:   Illumina miRNA-Seq
     Naming:     stem-loop level (hsa-mir-21-1, hsa-mir-100, hsa-let-7a-1...)
-    Unit:       log2(total_RPM + 1) — Xena đã chuẩn hoá, KHÔNG cần log thêm
+    Unit:       log2(RPM + 1)
     miRBase:    v22 → ~1,881 hsa stem-loop precursors
 
 Pipeline:
@@ -20,7 +20,7 @@ Pipeline:
     │       TCGA-AA-3819-01A-... → TCGA-AA-3819                       │
     │   1c. Loại bỏ bệnh nhân trùng lặp (giữ Vial A = first)          │
     │   1d. Transpose → (Bệnh nhân × miRNA)                           │
-    │       (KHÔNG log transform — Xena đã log2(RPM+1))               │
+    │       (KHÔNG log transform — dữ liệu đã ở dạng log2(RPM+1))     │
     ├─────────────────────────────────────────────────────────────────┤
     │ BƯỚC 2 — Gộp các cancer types                                   │
     │   pd.concat(join='inner') → chỉ giữ miRNA có ở tất cả cohorts   │
@@ -49,10 +49,10 @@ import pandas as pd
 
 def clean_and_transpose(file_path: str) -> pd.DataFrame:
     """
-    Đọc 1 file TSV miRNA expression (Xena HiSeq, dạng matrix):
+    Đọc 1 file TSV miRNA expression (GDC/TCGA, dạng matrix):
         - Rows: miRNA stem-loop ID (hsa-mir-21-1, hsa-mir-100, hsa-let-7a-1, ...)
         - Cols: TCGA barcodes đầy đủ (TCGA-AA-3819-01A-...)
-        - Values: log2(total_RPM + 1) — Xena đã chuẩn hoá sẵn
+        - Values: log2(RPM + 1) — dữ liệu đã chuẩn hoá sẵn
 
     Pipeline:
         1a. Lọc mẫu khối u nguyên phát (barcode[13:15] == '01')

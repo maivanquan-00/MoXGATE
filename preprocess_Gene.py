@@ -1,13 +1,13 @@
 """
 preprocess_Gene.py
 ==================
-Xử lý dữ liệu Gene Expression từ UCSC Xena hub cho GIAC dataset.
+Xử lý dữ liệu Gene Expression từ TCGA RNAseq - STAR - TPM cho GIAC dataset.
 
 Nguồn dữ liệu:
-    UCSC Xena — TCGA.<cohort>.sampleMap/HiSeqV2 (hoặc HiSeqV2_PANCAN)
-    Dataset đã được Xena chuẩn hoá: log2(norm_count + 1)
+    TCGA RNAseq - STAR - TPM
+    Dataset đầu vào đã ở dạng log2(TPM + 1)
     → KHÔNG cần áp dụng log transform thêm lần nữa
-    (lần preprocess trước đó áp log2 thêm = bug double-log đã fix 2026-05-09)
+    (nếu log thêm sẽ bị double-log và nén range quá mạnh)
 
 Pipeline:
     ┌─────────────────────────────────────────────────────────────────┐
@@ -129,7 +129,7 @@ def clean_and_transpose(file_path: str, coding_genes: set) -> pd.DataFrame:
 
     Returns:
         DataFrame shape (n_patients, n_coding_genes); values giữ nguyên
-        log2(norm_count+1) từ Xena (KHÔNG log thêm).
+        log2(TPM+1) từ nguồn RNAseq STAR (KHÔNG log thêm).
     """
     cancer_name = os.path.basename(file_path)
     print(f"  -> Đọc: {cancer_name}")
@@ -161,8 +161,8 @@ def clean_and_transpose(file_path: str, coding_genes: set) -> pd.DataFrame:
     print(f"     Bệnh nhân sau lọc: {df_tumor.shape[1]}")
 
     # --- Bước 2e: Transpose → (Bệnh nhân × Genes) ---
-    # KHÔNG log transform — Xena HiSeqV2 đã ở dạng log2(norm_count+1).
-    # Bug cũ: áp np.log2(x+1) thêm lần nữa → double-log nén range [0,15]→[0,4].
+    # KHÔNG log transform — dữ liệu đã ở dạng log2(TPM+1).
+    # Bug cũ: áp np.log2(x+1) thêm lần nữa → double-log nén range quá mạnh.
     return df_tumor.T
 
 
@@ -243,7 +243,7 @@ def process_gene(
     hgnc_path: str | None = None,
 ) -> pd.DataFrame:
     """
-    Toàn bộ pipeline xử lý Gene Expression: Xena log2(norm_count+1) → symbol matrix.
+    Toàn bộ pipeline xử lý Gene Expression: log2(TPM+1) → symbol matrix.
 
     Args:
         input_dir:  Thư mục gốc chứa dữ liệu omics (subfolder 'gene/' bên trong)
@@ -257,8 +257,8 @@ def process_gene(
         DataFrame (Bệnh nhân × Genes), cột là gene symbol nếu có hgnc_path.
     """
     print("\n" + "="*60)
-    print("  BẮT ĐẦU XỬ LÝ GENE EXPRESSION (Xena HiSeqV2)")
-    print("  Nguồn: UCSC Xena — đã ở dạng log2(norm_count+1)")
+    print("  BẮT ĐẦU XỬ LÝ GENE EXPRESSION (RNAseq - STAR - TPM)")
+    print("  Nguồn: dữ liệu đã ở dạng log2(TPM+1)")
     print("="*60)
 
     # ── Bước 1: Lấy danh sách protein-coding genes từ GTF ──────────────
@@ -280,8 +280,8 @@ def process_gene(
         df_cancer = clean_and_transpose(fp, coding_genes)
         df_list.append(df_cancer)
 
-    # ── Bước 3: Gộp 4 cancer types ─────────────────────────────────────
-    # join='inner': chỉ giữ genes xuất hiện ở tất cả 4 cohorts
+    # ── Bước 3: Gộp các cancer types ───────────────────────────────────
+    # join='inner': chỉ giữ genes xuất hiện ở tất cả cohorts
     # (đảm bảo ma trận không có NaN do khác nhau về gene coverage giữa cohorts)
     print(f"\n[Gene] Gộp {len(df_list)} cancer types (join='inner')...")
     master_df = pd.concat(df_list, axis=0, join='inner')

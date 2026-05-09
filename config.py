@@ -161,6 +161,25 @@ UCEC_CHECKPOINT_DIR  = os.path.join(BASE_DIR, "checkpoints_ucec")
 
 
 # ══════════════════════════════════════════════════════════════════
+#  ĐƯỜNG DẪN DỮ LIỆU — LGG (Brain Lower Grade Glioma)
+# ══════════════════════════════════════════════════════════════════
+
+# Dữ liệu gốc
+LGG_RAW_OMICS_DIR   = os.path.join(BASE_DIR, "data_original", "multi_omics_lgg")
+LGG_RAW_SUBTYPE_DIR = os.path.join(BASE_DIR, "data_original", "subtype_lgg")
+
+# Dữ liệu trung gian
+LGG_PROCESSED_DIR   = os.path.join(BASE_DIR, "data_processed_lgg")
+LGG_LABELS_PATH     = os.path.join(LGG_PROCESSED_DIR, "clean_labels_lgg.csv")
+
+# Dữ liệu cuối
+LGG_FINAL_DIR       = os.path.join(BASE_DIR, "data_final_lgg")
+
+# Checkpoint & kết quả
+LGG_CHECKPOINT_DIR  = os.path.join(BASE_DIR, "checkpoints_lgg")
+
+
+# ══════════════════════════════════════════════════════════════════
 #  HYPERPARAMETERS MẶC ĐỊNH (theo paper MoXGATE)
 # ══════════════════════════════════════════════════════════════════
 

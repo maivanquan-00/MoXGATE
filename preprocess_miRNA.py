@@ -29,7 +29,10 @@ Pipeline:
     │   Loại miRNA thiếu dữ liệu ở >40% bệnh nhân                     │
     │   Điền phần còn lại bằng Median Imputation                      │
     ├─────────────────────────────────────────────────────────────────┤
-    │ BƯỚC 4 — Lưu kết quả                                            │
+    │ BƯỚC 4 — Lọc miRNA biểu hiện thấp                               │
+    │   Giữ miRNA có log2(RPM+1) > 0.5 ở ít nhất 20% bệnh nhân         │
+    ├─────────────────────────────────────────────────────────────────┤
+    │ BƯỚC 5 — Lưu kết quả                                            │
     │   → processed_mirna.csv  (Bệnh nhân × miRNA)                    │
     └─────────────────────────────────────────────────────────────────┘
 
@@ -41,6 +44,9 @@ Sanity check sau preprocessing:
 import os
 import glob
 import pandas as pd
+
+MIRNA_EXPRESSION_THRESHOLD = 0.5
+MIRNA_MIN_EXPRESSION_FRACTION = 0.20
 
 
 # ─────────────────────────────────────────────
@@ -130,13 +136,45 @@ def handle_missing_and_impute(df: pd.DataFrame) -> pd.DataFrame:
     return df_imputed
 
 
+def filter_low_expression_mirna(
+    df: pd.DataFrame,
+    expression_threshold: float = MIRNA_EXPRESSION_THRESHOLD,
+    min_expression_fraction: float = MIRNA_MIN_EXPRESSION_FRACTION,
+) -> pd.DataFrame:
+    """
+    Lọc miRNA biểu hiện thấp theo rule không dùng nhãn:
+        giữ miRNA nếu log2(RPM + 1) > expression_threshold
+        ở ít nhất min_expression_fraction bệnh nhân.
+
+    Rule mặc định đã test trên GIAC:
+        threshold = 0.5, fraction = 20% -> khoảng 593/1881 miRNA.
+    """
+    expressed_fraction = (df > expression_threshold).mean(axis=0)
+    keep_mask = expressed_fraction >= min_expression_fraction
+    df_filtered = df.loc[:, keep_mask]
+
+    n_dropped = df.shape[1] - df_filtered.shape[1]
+    print(
+        "[miRNA] Low-expression filter: "
+        f"log2(RPM+1) > {expression_threshold} "
+        f"ở >= {min_expression_fraction:.0%} bệnh nhân"
+    )
+    print(
+        f"[miRNA]  Loại {n_dropped:,} miRNA biểu hiện thấp "
+        f"→ còn {df_filtered.shape[1]:,} miRNA"
+    )
+
+    return df_filtered
+
+
 # ─────────────────────────────────────────────
 # 3. HÀM CHÍNH: PROCESS_MIRNA
 # ─────────────────────────────────────────────
 
 def process_mirna(input_dir: str, output_dir: str) -> pd.DataFrame:
     """
-    Toàn bộ pipeline xử lý miRNA Expression (GDC Harmonized, không filter thêm).
+    Toàn bộ pipeline xử lý miRNA Expression (GDC Harmonized), có lọc
+    low-expression miRNA bằng rule không dùng nhãn.
 
     Args:
         input_dir:  Thư mục gốc omics (chứa subfolder 'mirna/' bên trong)
@@ -180,7 +218,11 @@ def process_mirna(input_dir: str, output_dir: str) -> pd.DataFrame:
     # ── Bước 3: Quality Control ─────────────────────────────────────────
     final_df = handle_missing_and_impute(master_df)
 
-    # ── Bước 4: Lưu output ──────────────────────────────────────────────
+    # ── Bước 4: Lọc miRNA biểu hiện thấp ───────────────────────────────
+    # Rule không dùng nhãn, tránh leakage: log2(RPM+1) > 0.5 ở >=20% bệnh nhân.
+    final_df = filter_low_expression_mirna(final_df)
+
+    # ── Bước 5: Lưu output ──────────────────────────────────────────────
     os.makedirs(output_dir, exist_ok=True)
     out_path = os.path.join(output_dir, "processed_mirna.csv")
     final_df.to_csv(out_path)

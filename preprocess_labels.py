@@ -96,17 +96,17 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    print(f"[GIAC Labels] Đọc từ  : {args.subtype_dir}")
-    print(f"[GIAC Labels] Lưu ra  : {args.output_path}")
+    print("Đang xử lý dữ liệu nhãn GIAC...")
+    print(f"  subtype_dir : {args.subtype_dir}")
+    print(f"  output_path : {args.output_path}")
 
     final_labels = process_clinical_labels(args.subtype_dir)
 
-    print(f"\n[GIAC Labels] Tổng số bệnh nhân: {len(final_labels)}")
-    print(f"\n[GIAC Labels] Phân bố subtype:")
-    dist = final_labels.groupby(['Subtype', 'Target_Label']).size().reset_index(name='count')
-    for _, row in dist.iterrows():
-        print(f"  {row['Subtype']} (label={row['Target_Label']}): {row['count']} mẫu")
+    print("\nXử lý hoàn tất! 5 dòng đầu tiên:")
+    print(final_labels.head())
+    print(f"\nPhân bố subtype:\n{final_labels['Subtype'].value_counts().to_string()}")
 
+    # Lưu ra file CSV để các file khác đọc lại
     os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
     final_labels.to_csv(args.output_path, index=False)
-    print(f"\n[GIAC Labels] Đã lưu: {args.output_path}")
+    print(f"\nĐã lưu kết quả ra file: {args.output_path}")

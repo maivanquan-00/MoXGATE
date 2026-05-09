@@ -57,8 +57,6 @@ def process_clinical_labels_kipan(subtype_folder_path: str) -> pd.DataFrame:
             f"Hãy chắc chắn thư mục chứa clinical data từ TCGA/GDC."
         )
 
-    print(f"[KIPAN Labels] Tìm thấy {len(tsv_files)} file TSV.")
-
     df_list = []
     for fpath in tsv_files:
         df = pd.read_csv(fpath, sep='\t', dtype=str)
@@ -83,7 +81,6 @@ def process_clinical_labels_kipan(subtype_folder_path: str) -> pd.DataFrame:
     #   'TCGA PanCanAtlas Cancer Type Acronym' → Pan-Cancer clinical TSV
     #   'project_id'                           → GDC manifest (dạng TCGA-KIRC)
     #   'Cancer Type Abbreviation'             → các nguồn khác
-    print(f"[KIPAN Labels] Các cột trong file: {list(master_df.columns[:10])}")
     cancer_col = None
     for col in ['Subtype', 'TCGA PanCanAtlas Cancer Type Acronym', 'project_id',
                 'Cancer Type Abbreviation', 'Cancer_Type', 'type']:
@@ -99,8 +96,6 @@ def process_clinical_labels_kipan(subtype_folder_path: str) -> pd.DataFrame:
 
     master_df = master_df.rename(columns={cancer_col: 'Cancer_Type'})
     print(f"[KIPAN Labels] Dùng cột nhãn: '{cancer_col}'")
-    print(f"[KIPAN Labels] Mẫu giá trị Cancer_Type: {master_df['Cancer_Type'].unique()[:10].tolist()}")
-
     # 4. Chuẩn hóa giá trị Cancer_Type
     # project_id thường có dạng 'TCGA-KIRC' → tách phần sau dấu '-'
     master_df['Cancer_Type'] = master_df['Cancer_Type'].astype(str).str.strip()

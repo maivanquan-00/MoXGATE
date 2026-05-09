@@ -55,8 +55,6 @@ def process_clinical_labels_lgg(subtype_folder_path: str) -> pd.DataFrame:
             f"Không tìm thấy file .tsv nào trong: {subtype_folder_path}\n"
         )
 
-    print(f"[LGG Labels] Tìm thấy {len(tsv_files)} file TSV.")
-
     df_list = []
     for fpath in tsv_files:
         df = pd.read_csv(fpath, sep='\t', dtype=str)
@@ -74,7 +72,6 @@ def process_clinical_labels_lgg(subtype_folder_path: str) -> pd.DataFrame:
         master_df = master_df.rename(columns={master_df.columns[0]: 'Patient_ID'})
 
     # 3. Xác định cột Subtype
-    print(f"[LGG Labels] Các cột trong file: {list(master_df.columns[:10])}")
     cancer_col = None
     for col in ['Subtype', 'TCGA PanCanAtlas Cancer Type Acronym', 'project_id',
                 'Cancer Type Abbreviation', 'Cancer_Type', 'type']:
@@ -90,7 +87,6 @@ def process_clinical_labels_lgg(subtype_folder_path: str) -> pd.DataFrame:
 
     master_df = master_df.rename(columns={cancer_col: 'Cancer_Type'})
     print(f"[LGG Labels] Dùng cột nhãn: '{cancer_col}'")
-    
     # 4. Chuẩn hóa giá trị Subtype
     master_df['Clean_Subtype'] = master_df['Cancer_Type'].apply(extract_subtype)
     

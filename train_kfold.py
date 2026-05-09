@@ -50,7 +50,7 @@ class OmicsDataset(Dataset):
 
 def load_all_data(data_dir):
     print(f"\n[Data] Loading from: {data_dir}")
-    gene   = pd.read_csv(os.path.join(data_dir, "final_gene_symbol.csv"), index_col=0)
+    gene   = pd.read_csv(os.path.join(data_dir, "final_gene.csv"), index_col=0)
     mirna  = pd.read_csv(os.path.join(data_dir, "final_mirna.csv"), index_col=0)
     methyl = pd.read_csv(os.path.join(data_dir, "final_methylation.csv"), index_col=0)
     labels = pd.read_csv(os.path.join(data_dir, "final_labels.csv"), index_col=0)

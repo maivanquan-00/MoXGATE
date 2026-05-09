@@ -123,7 +123,7 @@ def interpret(args):
         # Read column names if available
         gene_names = []
         try:
-            with open(os.path.join(config.GI_FINAL_DIR, "final_gene_symbol.csv"), "r") as f:
+            with open(os.path.join(config.GI_FINAL_DIR, "final_gene.csv"), "r") as f:
                 gene_names = f.readline().strip().split(',')[1:]
         except:
             gene_names = [f"Gene_{i}" for i in range(len(attr_gene))]

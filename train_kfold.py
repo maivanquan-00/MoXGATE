@@ -169,6 +169,8 @@ def main():
     parser.add_argument("--lambda1", type=float, default=0.01)
     parser.add_argument("--lambda2", type=float, default=1e-4)
     parser.add_argument("--patience", type=int, default=15)
+    parser.add_argument("--seed", type=int, default=config.DEFAULT_SEED, help="Seed for 5-fold split and training")
+    parser.add_argument("--multi_seed", action="store_true", help="Run legacy 3-seed mode (42, 123, 2024)")
     parser.add_argument("--test_mode", action="store_true", help="Chạy 1 fold cho mục đích test code nhanh")
     args = parser.parse_args()
     
@@ -185,7 +187,8 @@ def main():
     data_tuple = load_all_data(args.data_dir)
     _, _, _, y, dims = data_tuple
     
-    seeds = [42, 123, 2024]
+    seeds = [42, 123, 2024] if args.multi_seed else [args.seed]
+    print(f"[Run Mode] Seeds: {seeds}")
     all_results = []
     
     for seed in seeds:
@@ -244,11 +247,10 @@ def main():
         if args.test_mode:
             break
 
-    # Final Overall (15 runs)
-    print(f"\n{'*'*50}")
-    print("HOÀN TẤT TẤT CẢ SEEDS (15 RUNS)")
-    
+    # Final Overall
     all_folds_metrics = [f for r in all_results for f in r["folds"]]
+    print(f"\n{'*'*50}")
+    print(f"HOÀN TẤT TẤT CẢ SEEDS ({len(all_folds_metrics)} RUNS)")
     ov_mac = np.mean([x["macro_f1"] for x in all_folds_metrics])
     sd_mac = np.std([x["macro_f1"] for x in all_folds_metrics])
     

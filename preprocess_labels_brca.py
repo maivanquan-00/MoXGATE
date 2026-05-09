@@ -45,7 +45,14 @@ def process_clinical_labels_brca(subtype_folder_path):
     master_df['Target_Label'] = master_df['Clean_Subtype'].map(subtype_map)
     master_df = master_df.dropna(subset=['Target_Label'])
     master_df['Target_Label'] = master_df['Target_Label'].astype(int)
-    final_labels = master_df[['Patient ID', 'Clean_Subtype', 'Target_Label']]
+    
+    # Output 4 cột: Patient ID, Cancer_Type, Subtype, Target_Label
+    final_labels = pd.DataFrame({
+        'Patient ID': master_df['Patient ID'],
+        'Cancer_Type': 'BRCA',  # constant
+        'Subtype': master_df['Clean_Subtype'],
+        'Target_Label': master_df['Target_Label']
+    })
     return final_labels
 
 if __name__ == "__main__":

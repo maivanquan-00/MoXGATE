@@ -109,8 +109,10 @@ def process_clinical_labels_lgg(subtype_folder_path: str) -> pd.DataFrame:
     final_labels = master_df[['Patient_ID', 'Clean_Subtype', 'Target_Label']].copy()
     final_labels = final_labels.rename(columns={
         'Patient_ID': 'Patient ID',
-        'Clean_Subtype': 'Cancer_Type' # Giữ tên cột Cancer_Type cho code build dataset tương thích 
+        'Clean_Subtype': 'Subtype'
     })
+    # Thêm cột Cancer_Type = 'LGG' (constant)
+    final_labels.insert(1, 'Cancer_Type', 'LGG')
 
     return final_labels
 

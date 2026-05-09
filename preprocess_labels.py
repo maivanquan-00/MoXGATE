@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import glob
+import argparse
 
 def process_clinical_labels(subtype_folder_path):
     """
@@ -69,6 +70,43 @@ def process_clinical_labels(subtype_folder_path):
     master_df['Target_Label'] = master_df['Target_Label'].astype(int)
     
     # Trả về bảng cuối cùng chỉ với các cột cần thiết
-    final_labels = master_df[['Patient ID', 'Cancer_Type', 'Clean_Subtype', 'Target_Label']]
+    # Đổi tên Clean_Subtype -> Subtype để đồng bộ với các dataset khác
+    final_labels = master_df[['Patient ID', 'Cancer_Type', 'Clean_Subtype', 'Target_Label']].copy()
+    final_labels = final_labels.rename(columns={'Clean_Subtype': 'Subtype'})
 
-    return final_labels
+    return final_labels
+
+
+if __name__ == "__main__":
+    import config
+
+    parser = argparse.ArgumentParser(
+        description="Xử lý nhãn GIAC (4 loại ung thư ruột, thực quản) từ clinical TSV",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--subtype_dir", type=str,
+        default=config.GI_RAW_SUBTYPE_DIR,
+        help="Thư mục chứa file TSV clinical GIAC",
+    )
+    parser.add_argument(
+        "--output_path", type=str,
+        default=config.GI_LABELS_PATH,
+        help="Đường dẫn file output CSV",
+    )
+    args = parser.parse_args()
+
+    print(f"[GIAC Labels] Đọc từ  : {args.subtype_dir}")
+    print(f"[GIAC Labels] Lưu ra  : {args.output_path}")
+
+    final_labels = process_clinical_labels(args.subtype_dir)
+
+    print(f"\n[GIAC Labels] Tổng số bệnh nhân: {len(final_labels)}")
+    print(f"\n[GIAC Labels] Phân bố subtype:")
+    dist = final_labels.groupby(['Subtype', 'Target_Label']).size().reset_index(name='count')
+    for _, row in dist.iterrows():
+        print(f"  {row['Subtype']} (label={row['Target_Label']}): {row['count']} mẫu")
+
+    os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
+    final_labels.to_csv(args.output_path, index=False)
+    print(f"\n[GIAC Labels] Đã lưu: {args.output_path}")

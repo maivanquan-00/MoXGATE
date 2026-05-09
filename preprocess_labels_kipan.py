@@ -122,7 +122,10 @@ def process_clinical_labels_kipan(subtype_folder_path: str) -> pd.DataFrame:
     # GDC thường dùng 12 ký tự đầu: TCGA-A3-3308
     master_df['Patient_ID'] = master_df['Patient_ID'].str[:12]
 
-    final_labels = master_df[['Patient_ID', 'Cancer_Type', 'Target_Label']].copy()
+    # Thêm cột Subtype = Cancer_Type (để đồng bộ với các dataset khác)
+    master_df['Subtype'] = master_df['Cancer_Type']
+    
+    final_labels = master_df[['Patient_ID', 'Cancer_Type', 'Subtype', 'Target_Label']].copy()
     final_labels = final_labels.rename(columns={'Patient_ID': 'Patient ID'})
 
     return final_labels

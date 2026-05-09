@@ -38,7 +38,6 @@ Cách chạy:
 """
 
 import os
-import argparse
 import pandas as pd
 
 
@@ -239,35 +238,3 @@ def final_process(processed_dir: str, labels_path: str, output_dir: str):
     print(f"         {out_methyl}  → {methyl.shape}")
     print(f"         {out_labels}      → {labels_final.shape}")
     print("="*60)
-
-
-# ─────────────────────────────────────────────
-# 5. ENTRY POINT
-# ─────────────────────────────────────────────
-
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Bước cuối: lọc 3 omics theo bệnh nhân có nhãn"
-    )
-    parser.add_argument(
-        "--processed_dir", type=str, required=True,
-        help="Thư mục chứa processed_gene.csv, processed_mirna.csv, processed_methylation.csv"
-    )
-    parser.add_argument(
-        "--labels_path", type=str, required=True,
-        help="Đường dẫn file clean_labels.csv"
-    )
-    parser.add_argument(
-        "--output_dir", type=str, required=True,
-        help="Thư mục lưu final_gene.csv, final_mirna.csv, final_methylation.csv, final_labels.csv"
-    )
-    return parser.parse_args()
-
-
-if __name__ == "__main__":
-    args = parse_args()
-    final_process(
-        processed_dir=args.processed_dir,
-        labels_path=args.labels_path,
-        output_dir=args.output_dir,
-    )

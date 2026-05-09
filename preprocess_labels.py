@@ -70,36 +70,5 @@ def process_clinical_labels(subtype_folder_path):
     
     # Trả về bảng cuối cùng chỉ với các cột cần thiết
     final_labels = master_df[['Patient ID', 'Cancer_Type', 'Clean_Subtype', 'Target_Label']]
-    
-    return final_labels
 
-if __name__ == "__main__":
-    import argparse
-    import config
-
-    parser = argparse.ArgumentParser(description="Xử lý nhãn GI Cancer từ clinical TSV")
-    parser.add_argument(
-        "--subtype_dir", type=str,
-        default=config.GI_RAW_SUBTYPE_DIR,
-        help="Thư mục chứa file TSV clinical GI",
-    )
-    parser.add_argument(
-        "--output_path", type=str,
-        default=config.GI_LABELS_PATH,
-        help="Đường dẫn file output CSV",
-    )
-    args = parser.parse_args()
-
-    print("Đang xử lý dữ liệu nhãn GI Cancer...")
-    print(f"  subtype_dir : {args.subtype_dir}")
-    print(f"  output_path : {args.output_path}")
-
-    final_labels = process_clinical_labels(args.subtype_dir)
-
-    print("\nXử lý hoàn tất! 5 dòng đầu tiên:")
-    print(final_labels.head())
-    print(f"\nPhân bố subtype:\n{final_labels['Clean_Subtype'].value_counts().to_string()}")
-
-    os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
-    final_labels.to_csv(args.output_path, index=False)
-    print(f"\nĐã lưu kết quả ra file: {args.output_path}")
+    return final_labels

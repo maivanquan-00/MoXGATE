@@ -1,11 +1,14 @@
 """
 preprocess_CpG.py
 =================
-Xử lý dữ liệu DNA Methylation (CpG) từ TCGA GDC cho GIAC dataset.
+Xử lý dữ liệu DNA Methylation (CpG) từ TCGA cho GIAC dataset.
 
 Nguồn dữ liệu:
-    GDC TCGA Harmonized — Illumina Human Methylation 27k và 450k
-    (COAD: 27k n=203, 450k n=346 | ESCA: 450k | READ: 27k+450k | STAD: 27k+450k)
+    TCGA — Illumina Human Methylation 27k và 450k (qua GDC hoặc UCSC Xena hub)
+    Xena dataset IDs:
+        - HumanMethylation27   (TCGA.<cohort>.sampleMap/HumanMethylation27)
+        - HumanMethylation450  (TCGA.<cohort>.sampleMap/HumanMethylation450)
+    Cả 2 nguồn đều cung cấp beta values trong [0, 1] → pipeline xử lý giống nhau.
 
 Đặc thù của Methylation:
     - Có 2 loại chip: Illumina 27k (~27,578 probes) và 450k (~485,512 probes)
@@ -66,7 +69,6 @@ Lưu ý:
 
 import os
 import glob
-import argparse
 import pandas as pd
 
 
@@ -311,7 +313,7 @@ def process_cpg(
     """
     print("\n" + "="*60)
     print("  BẮT ĐẦU XỬ LÝ DNA METHYLATION (CpG)")
-    print("  Nguồn: GDC TCGA Harmonized (27k + 450k)")
+    print("  Nguồn: TCGA Illumina HumanMethylation 27k + 450k (beta values)")
     print("="*60)
 
     # ── Bước 0: Tải danh sách probes cần loại bỏ ───────────────────────
@@ -384,39 +386,3 @@ def process_cpg(
 
     return final_df
 
-
-# ─────────────────────────────────────────────
-# 5. ENTRY POINT
-# ─────────────────────────────────────────────
-
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Xử lý DNA Methylation TCGA cho GIAC dataset"
-    )
-    parser.add_argument(
-        "--input_dir", type=str, required=True,
-        help="Thư mục gốc chứa dữ liệu omics (chứa subfolder 'methyl/27k/' và 'methyl/450k/')"
-    )
-    parser.add_argument(
-        "--output_dir", type=str, required=True,
-        help="Thư mục lưu file processed_methylation.csv"
-    )
-    parser.add_argument(
-        "--cross_reactive_path", type=str, default=None,
-        help="(Tùy chọn) Đường dẫn file cross-reactive probes (Chen et al. 2013)"
-    )
-    parser.add_argument(
-        "--manifest_path", type=str, default=None,
-        help="(Tùy chọn) Đường dẫn Illumina 450k manifest CSV"
-    )
-    return parser.parse_args()
-
-
-if __name__ == "__main__":
-    args = parse_args()
-    process_cpg(
-        input_dir=args.input_dir,
-        output_dir=args.output_dir,
-        cross_reactive_path=args.cross_reactive_path,
-        manifest_path=args.manifest_path,
-    )

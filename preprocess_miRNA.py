@@ -1,23 +1,28 @@
 """
 preprocess_miRNA.py
 ===================
-Xử lý dữ liệu miRNA Expression từ TCGA GDC cho GIAC dataset.
+Xử lý dữ liệu miRNA Expression từ UCSC Xena hub cho GIAC dataset.
 
 Nguồn dữ liệu:
-    GDC TCGA Harmonized — miRNA Expression Quantification (stem-loop, miRBase v22)
-    (COAD n=461, ESCA n=198, READ n=165, STAD n=477 — trước khi lọc -01)
+    UCSC Xena — TCGA.<cohort>.sampleMap/miRNA_HiSeq_gene
+    Dataset ID: miRNA mature strand expression RNAseq (IlluminaHiSeq)
+    Platform:   IlluminaHiSeq miRNA-Seq
+    Naming:     stem-loop level (hsa-mir-21-1, hsa-mir-100, hsa-let-7a-1...)
+    Unit:       log2(total_RPM + 1) — Xena đã chuẩn hoá, KHÔNG cần log thêm
+    miRBase:    v22 → ~1,881 hsa stem-loop precursors
 
 Pipeline:
     ┌─────────────────────────────────────────────────────────────────┐
-    │ BƯỚC 1 — Xử lý từng cancer type (lặp qua 4 file TSV)            │
+    │ BƯỚC 1 — Xử lý từng cancer type (lặp qua các file TSV)          │
     │   1a. Lọc mẫu khối u nguyên phát: barcode[13:15] == '01'        │
     │       (loại normal tissue, recurrence, metastasis)              │
     │   1b. Rút gọn barcode → 12 ký tự Patient ID                     │
     │       TCGA-AA-3819-01A-... → TCGA-AA-3819                       │
     │   1c. Loại bỏ bệnh nhân trùng lặp (giữ Vial A = first)          │
     │   1d. Transpose → (Bệnh nhân × miRNA)                           │
+    │       (KHÔNG log transform — Xena đã log2(RPM+1))               │
     ├─────────────────────────────────────────────────────────────────┤
-    │ BƯỚC 2 — Gộp 4 cancer types                                     │
+    │ BƯỚC 2 — Gộp các cancer types                                   │
     │   pd.concat(join='inner') → chỉ giữ miRNA có ở tất cả cohorts   │
     ├─────────────────────────────────────────────────────────────────┤
     │ BƯỚC 3 — Quality Control                                        │
@@ -28,17 +33,13 @@ Pipeline:
     │   → processed_mirna.csv  (Bệnh nhân × miRNA)                    │
     └─────────────────────────────────────────────────────────────────┘
 
-Lưu ý:
-    - GDC dùng miRBase v22 (~1,881 hsa stem-loop) thay vì v20 như paper.
-    - Không áp dụng thêm bất kỳ filter nào ngoài QC chuẩn.
-    - Kết quả thực tế sẽ có nhiều features hơn paper (~746), điều này
-      phản ánh đúng thực tế dữ liệu GDC Harmonized.
-    - Để thử nghiệm zero-expression filter, dùng preprocess_miRNA_zero.py.
+Sanity check sau preprocessing:
+    Giá trị log2(RPM+1) thường có max ~ 15-20, nhiều giá trị 0 do miRNA
+    không expressed trong tissue. Median ~ 0 là bình thường.
 """
 
 import os
 import glob
-import argparse
 import pandas as pd
 
 
@@ -48,10 +49,10 @@ import pandas as pd
 
 def clean_and_transpose(file_path: str) -> pd.DataFrame:
     """
-    Đọc 1 file TSV miRNA expression (GDC dạng matrix):
-        - Rows: miRNA stem-loop ID (hsa-mir-21, hsa-let-7a-1, ...)
+    Đọc 1 file TSV miRNA expression (Xena HiSeq, dạng matrix):
+        - Rows: miRNA stem-loop ID (hsa-mir-21-1, hsa-mir-100, hsa-let-7a-1, ...)
         - Cols: TCGA barcodes đầy đủ (TCGA-AA-3819-01A-...)
-        - Values: read_count hoặc RPM (tùy cấu hình Xena)
+        - Values: log2(total_RPM + 1) — Xena đã chuẩn hoá sẵn
 
     Pipeline:
         1a. Lọc mẫu khối u nguyên phát (barcode[13:15] == '01')
@@ -145,8 +146,8 @@ def process_mirna(input_dir: str, output_dir: str) -> pd.DataFrame:
         DataFrame hoàn chỉnh (Bệnh nhân × miRNA), đồng thời lưu ra CSV.
     """
     print("\n" + "="*60)
-    print("  BẮT ĐẦU XỬ LÝ miRNA EXPRESSION")
-    print("  Nguồn: GDC TCGA Harmonized (miRBase v22)")
+    print("  BẮT ĐẦU XỬ LÝ miRNA EXPRESSION (Xena miRNA_HiSeq_gene)")
+    print("  Nguồn: UCSC Xena — đã ở dạng log2(RPM+1)")
     print("="*60)
 
     # ── Bước 1: Đọc và xử lý từng file TSV ────────────────────────────
@@ -185,34 +186,16 @@ def process_mirna(input_dir: str, output_dir: str) -> pd.DataFrame:
     final_df.to_csv(out_path)
 
     print(f"\n[miRNA] ✓ Đã lưu: {out_path}")
-    print(f"[miRNA] ✓ Shape cuối: {final_df.shape}  (Bệnh nhân × miRNA, GDC miRBase v22)")
+    print(f"[miRNA] ✓ Shape cuối: {final_df.shape}  (Bệnh nhân × miRNA, Xena log2(RPM+1))")
+
+    # Sanity check: phát hiện log transform thiếu/thừa
+    max_val = float(final_df.values.max())
+    print(f"[miRNA] ✓ Sanity check: max={max_val:.2f}")
+    if max_val > 100.0:
+        print(f"[miRNA] ⚠️  CẢNH BÁO: max={max_val:.2f} cao bất thường — có thể input là raw RPM, cần log!")
+    elif max_val < 6.0:
+        print(f"[miRNA] ⚠️  CẢNH BÁO: max={max_val:.2f} thấp bất thường — có thể đã bị double-log!")
     print("="*60)
 
     return final_df
 
-
-# ─────────────────────────────────────────────
-# 4. ENTRY POINT
-# ─────────────────────────────────────────────
-
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Xử lý miRNA Expression TCGA GDC cho GIAC dataset"
-    )
-    parser.add_argument(
-        "--input_dir", type=str, required=True,
-        help="Thư mục gốc chứa dữ liệu omics (chứa subfolder 'mirna/')"
-    )
-    parser.add_argument(
-        "--output_dir", type=str, required=True,
-        help="Thư mục lưu file processed_mirna.csv"
-    )
-    return parser.parse_args()
-
-
-if __name__ == "__main__":
-    args = parse_args()
-    process_mirna(
-        input_dir=args.input_dir,
-        output_dir=args.output_dir,
-    )

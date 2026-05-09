@@ -1,16 +1,13 @@
 """
 preprocess_Gene.py
 ==================
-Xử lý dữ liệu Gene Expression (STAR - TPM) từ TCGA GDC cho GIAC dataset.
+Xử lý dữ liệu Gene Expression từ UCSC Xena hub cho GIAC dataset.
 
 Nguồn dữ liệu:
-    GDC TCGA Harmonized — STAR - TPM
-    (COAD n=514, ESCA n=198, READ n=177, STAD n=477 — trước khi lọc -01)
-
-TPM (Transcripts Per Million) đã chuẩn hoá cho:
-    - Chiều dài gene (gene dài không inflated hơn gene ngắn)
-    - Sequencing depth (sample nào đọc sâu hơn không được lợi thế)
-    → So sánh giữa các sample được chính xác hơn FPKM
+    UCSC Xena — TCGA.<cohort>.sampleMap/HiSeqV2 (hoặc HiSeqV2_PANCAN)
+    Dataset đã được Xena chuẩn hoá: log2(norm_count + 1)
+    → KHÔNG cần áp dụng log transform thêm lần nữa
+    (lần preprocess trước đó áp log2 thêm = bug double-log đã fix 2026-05-09)
 
 Pipeline:
     ┌─────────────────────────────────────────────────────────────────┐
@@ -18,7 +15,7 @@ Pipeline:
     │   Đọc GENCODE GTF → lấy gene_id của protein-coding genes        │
     │   (~19,962 genes với GENCODE v36)                               │
     ├─────────────────────────────────────────────────────────────────┤
-    │ BƯỚC 2 — Xử lý từng cancer type (lặp qua 4 file TSV)            │
+    │ BƯỚC 2 — Xử lý từng cancer type (lặp qua các file TSV)          │
     │   2a. Lọc protein-coding genes (theo gene_id ENSG có version)   │
     │   2b. Lọc mẫu khối u nguyên phát: barcode[13:15] == '01'        │
     │       (loại normal tissue, recurrence, metastasis)              │
@@ -26,32 +23,31 @@ Pipeline:
     │       TCGA-AA-3819-01A-... → TCGA-AA-3819                       │
     │   2d. Loại bỏ bệnh nhân trùng lặp (giữ Vial A = first)          │
     │   2e. Transpose → (Bệnh nhân × Genes)                           │
-    │   2f. Log2(x+1) normalization                                   │
-    │       TPM vẫn lệch phải (skewed) → log2 nén phân phối           │
-    │       log2(x+1): +1 để tránh log(0) với gene không biểu hiện   │
+    │       (KHÔNG log transform — Xena đã log2(norm_count+1))        │
     ├─────────────────────────────────────────────────────────────────┤
-    │ BƯỚC 3 — Gộp 4 cancer types                                     │
+    │ BƯỚC 3 — Gộp các cancer types                                   │
     │   pd.concat(join='inner') → chỉ giữ genes có ở tất cả cohorts   │
     ├─────────────────────────────────────────────────────────────────┤
     │ BƯỚC 4 — Quality Control                                        │
     │   Loại gene thiếu dữ liệu ở >40% bệnh nhân                      │
     │   Điền phần còn lại bằng Median Imputation                      │
     ├─────────────────────────────────────────────────────────────────┤
-    │ BƯỚC 5 — Lưu kết quả                                            │
-    │   → processed_gene.csv  (Bệnh nhân × Genes)                     │
+    │ BƯỚC 5 — Map Ensembl → gene symbol (HGNC complete set)          │
+    │   ENSG00000000003.15 → TSPAN6 (drop unmapped, dedup symbol)     │
+    │   Symbol bắt buộc cho graph PPI/Reactome edges                  │
+    ├─────────────────────────────────────────────────────────────────┤
+    │ BƯỚC 6 — Lưu kết quả                                            │
+    │   → processed_gene.csv  (Bệnh nhân × gene symbols)              │
     └─────────────────────────────────────────────────────────────────┘
 
-Lưu ý:
-    - Dữ liệu GDC Harmonized, không cố khớp con số paper.
-    - Paper dùng RSEM normalized FPKM (legacy pipeline) → số gene lệch nhẹ.
-    - Kết quả thực tế phụ thuộc vào số sample có trong GDC tại thời điểm tải.
+Sanity check sau preprocessing:
+    Giá trị log2(norm_count+1) thường có max ~ 15-20, median ~ 5-8.
+    Nếu max ~ 4 và median ~ 2 → ĐÃ BỊ DOUBLE LOG (bug cũ).
 """
 
 import os
 import glob
 import gzip
-import argparse
-import numpy as np
 import pandas as pd
 
 
@@ -115,10 +111,10 @@ def get_protein_coding_genes(gtf_path: str) -> set:
 
 def clean_and_transpose(file_path: str, coding_genes: set) -> pd.DataFrame:
     """
-    Đọc 1 file TSV gene expression (STAR - TPM, dạng matrix):
+    Đọc 1 file TSV gene expression (Xena HiSeqV2, dạng matrix):
         - Rows: Ensembl gene ID có version (ENSG00000000003.15)
         - Cols: TCGA barcodes đầy đủ (TCGA-DC-6683-01A-11R-...)
-        - Values: TPM (Transcripts Per Million) — float
+        - Values: log2(norm_count + 1) — Xena đã chuẩn hoá sẵn
 
     Pipeline:
         2a. Lọc protein-coding genes theo GTF annotation
@@ -126,14 +122,14 @@ def clean_and_transpose(file_path: str, coding_genes: set) -> pd.DataFrame:
         2c. Rút gọn barcode → 12 ký tự Patient ID
         2d. Loại bỏ bệnh nhân trùng lặp (giữ Vial A = first)
         2e. Transpose → (Bệnh nhân × Genes)
-        2f. Log2(x+1) normalization — chuyển raw counts sang log-scale
 
     Args:
         file_path:    Đường dẫn file TSV.
         coding_genes: Set Ensembl gene ID protein-coding (có version).
 
     Returns:
-        DataFrame shape (n_patients, n_coding_genes), đã log2(TPM+1) normalize.
+        DataFrame shape (n_patients, n_coding_genes); values giữ nguyên
+        log2(norm_count+1) từ Xena (KHÔNG log thêm).
     """
     cancer_name = os.path.basename(file_path)
     print(f"  -> Đọc: {cancer_name}")
@@ -165,15 +161,9 @@ def clean_and_transpose(file_path: str, coding_genes: set) -> pd.DataFrame:
     print(f"     Bệnh nhân sau lọc: {df_tumor.shape[1]}")
 
     # --- Bước 2e: Transpose → (Bệnh nhân × Genes) ---
-    df_t = df_tumor.T
-
-    # --- Bước 2f: Log2(TPM+1) normalization ---
-    # TPM đã chuẩn hoá chiều dài gene và sequencing depth
-    # Nhưng phân phối vẫn rất lệch phải (0 → hàng nghìn) → log2 nén lại
-    # log2(x+1): +1 tránh log(0) với gene không biểu hiện
-    df_t = np.log2(df_t + 1)
-
-    return df_t
+    # KHÔNG log transform — Xena HiSeqV2 đã ở dạng log2(norm_count+1).
+    # Bug cũ: áp np.log2(x+1) thêm lần nữa → double-log nén range [0,15]→[0,4].
+    return df_tumor.T
 
 
 # ─────────────────────────────────────────────
@@ -214,21 +204,61 @@ def handle_missing_and_impute(df: pd.DataFrame) -> pd.DataFrame:
 # 4. HÀM CHÍNH: PROCESS_GENE
 # ─────────────────────────────────────────────
 
-def process_gene(input_dir: str, output_dir: str, gtf_path: str) -> pd.DataFrame:
+def _load_hgnc_mapping(hgnc_path: str) -> dict:
+    """Đọc hgnc_complete_set.txt → dict {ensembl_gene_id (no version): symbol}."""
+    hgnc = pd.read_csv(
+        hgnc_path, sep="\t",
+        usecols=["ensembl_gene_id", "symbol"],
+        low_memory=False, dtype=str,
+    )
+    hgnc = hgnc.dropna(subset=["ensembl_gene_id", "symbol"])
+    hgnc["ensembl_gene_id"] = hgnc["ensembl_gene_id"].str.strip()
+    hgnc["symbol"]          = hgnc["symbol"].str.strip()
+    hgnc = hgnc.drop_duplicates(subset="ensembl_gene_id", keep="first")
+    return dict(zip(hgnc["ensembl_gene_id"], hgnc["symbol"]))
+
+
+def _map_ensembl_to_symbol(df: pd.DataFrame, ensg_to_sym: dict) -> pd.DataFrame:
+    """Chuyển cột Ensembl ID (có version) → gene symbol. Drop unmapped, dedup."""
+    new_cols = [ensg_to_sym.get(c.split(".")[0]) for c in df.columns]
+    mask = [s is not None for s in new_cols]
+    n_mapped = sum(mask)
+    print(f"[Gene] Map Ensembl→symbol: {n_mapped:,}/{len(new_cols):,} genes")
+
+    df = df.loc[:, mask].copy()
+    df.columns = [s for s in new_cols if s is not None]
+
+    n_before = df.shape[1]
+    df = df.loc[:, ~df.columns.duplicated(keep="first")]
+    if df.shape[1] < n_before:
+        print(f"[Gene] Loại {n_before - df.shape[1]:,} cột symbol trùng (giữ cái đầu)")
+
+    return df
+
+
+def process_gene(
+    input_dir: str,
+    output_dir: str,
+    gtf_path: str,
+    hgnc_path: str | None = None,
+) -> pd.DataFrame:
     """
-    Toàn bộ pipeline xử lý Gene Expression (STAR counts → log2 normalized).
+    Toàn bộ pipeline xử lý Gene Expression: Xena log2(norm_count+1) → symbol matrix.
 
     Args:
         input_dir:  Thư mục gốc chứa dữ liệu omics (subfolder 'gene/' bên trong)
         output_dir: Thư mục lưu output.
         gtf_path:   Đường dẫn file GENCODE GTF (plain hoặc .gz).
+        hgnc_path:  (Tùy chọn) hgnc_complete_set.txt — nếu có, map Ensembl → symbol.
+                    Nếu None hoặc file không tồn tại: giữ Ensembl ID (graph PPI/Reactome
+                    sẽ rỗng — chỉ dùng khi debug).
 
     Returns:
-        DataFrame hoàn chỉnh (Bệnh nhân × Genes), đồng thời lưu ra CSV.
+        DataFrame (Bệnh nhân × Genes), cột là gene symbol nếu có hgnc_path.
     """
     print("\n" + "="*60)
-    print("  BẮT ĐẦU XỬ LÝ GENE EXPRESSION (STAR TPM → Log2)")
-    print("  Nguồn: GDC TCGA Harmonized")
+    print("  BẮT ĐẦU XỬ LÝ GENE EXPRESSION (Xena HiSeqV2)")
+    print("  Nguồn: UCSC Xena — đã ở dạng log2(norm_count+1)")
     print("="*60)
 
     # ── Bước 1: Lấy danh sách protein-coding genes từ GTF ──────────────
@@ -260,44 +290,30 @@ def process_gene(input_dir: str, output_dir: str, gtf_path: str) -> pd.DataFrame
     # ── Bước 4: Quality Control ─────────────────────────────────────────
     final_df = handle_missing_and_impute(master_df)
 
-    # ── Bước 5: Lưu output ──────────────────────────────────────────────
+    # ── Bước 5: Map Ensembl → gene symbol (nếu có HGNC) ─────────────────
+    if hgnc_path and os.path.exists(hgnc_path):
+        ensg_to_sym = _load_hgnc_mapping(hgnc_path)
+        print(f"[Gene] HGNC: {len(ensg_to_sym):,} mappings")
+        final_df = _map_ensembl_to_symbol(final_df, ensg_to_sym)
+        print(f"[Gene] Sau khi map symbol: {final_df.shape}")
+    else:
+        print(f"[Gene] ⚠️  Không có HGNC path → giữ Ensembl ID (graph PPI/Reactome sẽ rỗng!)")
+
+    # ── Bước 6: Lưu output ──────────────────────────────────────────────
     os.makedirs(output_dir, exist_ok=True)
     out_path = os.path.join(output_dir, "processed_gene.csv")
     final_df.to_csv(out_path)
     print(f"\n[Gene] ✓ Đã lưu: {out_path}")
-    print(f"[Gene] ✓ Shape cuối: {final_df.shape}  (Bệnh nhân × Genes, log2(TPM+1) normalized)")
+    print(f"[Gene] ✓ Shape cuối: {final_df.shape}  (Bệnh nhân × Genes)")
+
+    # Sanity check: phát hiện double-log bug (giá trị max thấp bất thường)
+    max_val    = float(final_df.values.max())
+    median_val = float(pd.Series(final_df.values.flatten()).median())
+    print(f"[Gene] ✓ Sanity check: max={max_val:.2f}  median={median_val:.2f}")
+    if max_val < 6.0:
+        print(f"[Gene] ⚠️  CẢNH BÁO: max={max_val:.2f} thấp bất thường — có thể đã bị double-log!")
+        print(f"[Gene]    Kỳ vọng: max ~ 15-20 với log2(norm_count+1) chuẩn của Xena.")
     print("="*60)
 
     return final_df
 
-
-# ─────────────────────────────────────────────
-# 5. ENTRY POINT (chạy độc lập để test)
-# ─────────────────────────────────────────────
-
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Xử lý Gene Expression TCGA cho GIAC dataset"
-    )
-    parser.add_argument(
-        "--input_dir", type=str, required=True,
-        help="Thư mục gốc chứa dữ liệu omics (chứa subfolder 'gene/')"
-    )
-    parser.add_argument(
-        "--output_dir", type=str, required=True,
-        help="Thư mục lưu file processed_gene.csv"
-    )
-    parser.add_argument(
-        "--gtf_path", type=str, required=True,
-        help="Đường dẫn file GTF annotation (plain hoặc .gz)"
-    )
-    return parser.parse_args()
-
-
-if __name__ == "__main__":
-    args = parse_args()
-    process_gene(
-        input_dir=args.input_dir,
-        output_dir=args.output_dir,
-        gtf_path=args.gtf_path,
-    )

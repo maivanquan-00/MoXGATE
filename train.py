@@ -243,16 +243,16 @@ def train(args):
     present_labels = sorted(np.unique(np.concatenate([test_targets, test_preds])))
     present_names  = [subtype_names[i] for i in present_labels]
     
-    print(f"\n{'='*75}")
+    print(f"\n{'='*80}")
     print("  TEST SET METRICS (FINAL)")
-    print(f"{'='*75}")
-    print(f"{'Metric':<20} | {'Macro':<20} | {'Weighted':<20}")
-    print(f"{'-'*75}")
-    print(f"{'Accuracy':<20} | {test_metrics['accuracy']:.4f}         | {test_metrics['accuracy']:.4f}")
-    print(f"{'F1-Score':<20} | {test_metrics.get('macro_f1', 0.0):.4f}         | {test_metrics['weighted_f1']:.4f}")
-    print(f"{'Precision':<20} | {test_metrics.get('macro_precision', 0.0):.4f}         | {test_metrics['precision']:.4f}")
-    print(f"{'Recall':<20} | {test_metrics.get('macro_recall', 0.0):.4f}         | {test_metrics['recall']:.4f}")
-    print(f"{'='*75}")
+    print(f"{'='*80}")
+    print(f"{'Metric':<20} | {'Macro':<25} | {'Weighted':<25}")
+    print(f"{'-'*80}")
+    print(f"{'Accuracy':<20} | {test_metrics['accuracy']:.4f}              | {test_metrics['accuracy']:.4f}")
+    print(f"{'F1-Score':<20} | {test_metrics.get('macro_f1', 0.0):.4f}              | {test_metrics['weighted_f1']:.4f}")
+    print(f"{'Precision':<20} | {test_metrics.get('macro_precision', 0.0):.4f}              | {test_metrics['precision']:.4f}")
+    print(f"{'Recall':<20} | {test_metrics.get('macro_recall', 0.0):.4f}              | {test_metrics['recall']:.4f}")
+    print(f"{'='*80}")
     print(f"\nModality weights (final): {model.get_modality_weights()}")
     print(f"\nClassification Report:\n{classification_report(test_targets, test_preds, labels=present_labels, target_names=present_names, zero_division=0)}")
 
@@ -261,9 +261,10 @@ def train(args):
     with open(os.path.join(args.save_dir, "test_results.json"), "w") as f:
         json.dump(test_results, f, indent=2)
 
-    print(f"\n{'★'*60}")
-    print(f"  HOÀN TẤT — Best val acc: {best_val_acc:.4f} | Test acc: {test_metrics['accuracy']:.4f}")
-    print(f"{'★'*60}")
+    print(f"\n{'★'*80}")
+    print(f"  HOÀN TẤT — Val Acc: {best_val_acc:.4f} | Test Acc: {test_metrics['accuracy']:.4f}")
+    print(f"              Test Macro F1: {test_metrics.get('macro_f1', 0.0):.4f} | Test Weighted F1: {test_metrics['weighted_f1']:.4f}")
+    print(f"{'★'*80}")
     return test_metrics
 
 

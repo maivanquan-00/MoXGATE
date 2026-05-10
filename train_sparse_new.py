@@ -51,8 +51,10 @@ def evaluate(model, loader, device):
         "accuracy": accuracy_score(all_targets, all_preds),
         "weighted_f1": f1_score(all_targets, all_preds, average="weighted", zero_division=0),
         "macro_f1":    f1_score(all_targets, all_preds, average="macro", zero_division=0),
-        "precision": precision_score(all_targets, all_preds, average="weighted", zero_division=0),
-        "recall": recall_score(all_targets, all_preds, average="weighted", zero_division=0),
+        "weighted_precision": precision_score(all_targets, all_preds, average="weighted", zero_division=0),
+        "macro_precision": precision_score(all_targets, all_preds, average="macro", zero_division=0),
+        "weighted_recall": recall_score(all_targets, all_preds, average="weighted", zero_division=0),
+        "macro_recall": recall_score(all_targets, all_preds, average="macro", zero_division=0),
     }, all_preds, all_targets
 
 def train(args):
@@ -115,8 +117,23 @@ def train(args):
     present_labels = sorted(np.unique(np.concatenate([test_targets, test_preds])))
     present_names = [GI_SUBTYPE_NAMES[i] for i in present_labels]
 
-    print(f"\n[Sparsemax New Split Result] Accuracy: {test_metrics['accuracy']:.4f} | F1: {test_metrics['weighted_f1']:.4f}")
-    print(classification_report(test_targets, test_preds, target_names=present_names, zero_division=0))
+    print(f"\n{'='*80}")
+    print("  TEST SET METRICS (FINAL) - Sparsemax New Split")
+    print(f"{'='*80}")
+    print(f"{'Metric':<20} | {'Macro':<25} | {'Weighted':<25}")
+    print(f"{'-'*80}")
+    print(f"{'Accuracy':<20} | {test_metrics['accuracy']:.4f}              | {test_metrics['accuracy']:.4f}")
+    print(f"{'F1-Score':<20} | {test_metrics['macro_f1']:.4f}              | {test_metrics['weighted_f1']:.4f}")
+    print(f"{'Precision':<20} | {test_metrics['macro_precision']:.4f}              | {test_metrics['weighted_precision']:.4f}")
+    print(f"{'Recall':<20} | {test_metrics['macro_recall']:.4f}              | {test_metrics['weighted_recall']:.4f}")
+    print(f"{'='*80}")
+    
+    print(f"\n{'★'*80}")
+    print(f"  HOÀN TẤT — Val Acc: {best_val_acc:.4f} | Test Acc: {test_metrics['accuracy']:.4f}")
+    print(f"              Test Macro F1: {test_metrics['macro_f1']:.4f} | Test Weighted F1: {test_metrics['weighted_f1']:.4f}")
+    print(f"{'★'*80}")
+    
+    print(f"\nClassification Report:\n{classification_report(test_targets, test_preds, target_names=present_names, zero_division=0)}")
     
     cm_path = os.path.join(args.save_dir, "confusion_matrix_sparse_gi_new.png")
     plot_confusion_matrix(test_targets, test_preds, labels=present_names, save_path=cm_path)

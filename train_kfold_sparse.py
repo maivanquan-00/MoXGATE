@@ -228,12 +228,15 @@ def main():
         avg_rec = np.mean([x["macro_recall"] for x in seed_metrics])
         std_rec = np.std([x["macro_recall"] for x in seed_metrics])
         
-        print(f"\n>>> SEED {seed} AVERAGE ± STD (SPARSEMAX) <<<")
-        print(f"  F1-Macro         : {avg_macro:.4f} ± {std_macro:.4f}")
-        print(f"  F1-Weighted      : {avg_weight:.4f} ± {std_weight:.4f}")
-        print(f"  Accuracy         : {avg_acc:.4f} ± {std_acc:.4f}")
-        print(f"  Precision-Macro  : {avg_pre:.4f} ± {std_pre:.4f}")
-        print(f"  Recall-Macro     : {avg_rec:.4f} ± {std_rec:.4f}")
+        print(f"\n>>> SEED {seed} FINAL METRICS (Mean ± Std) - SPARSEMAX <<<")
+        print(f"{'='*80}")
+        print(f"{'Metric':<20} | {'Macro':<25} | {'Weighted':<25}")
+        print(f"{'-'*80}")
+        print(f"{'Accuracy':<20} | {avg_acc:.4f} ± {std_acc:.4f}     | {avg_acc:.4f} ± {std_acc:.4f}")
+        print(f"{'F1-Score':<20} | {avg_macro:.4f} ± {std_macro:.4f}     | {avg_weight:.4f} ± {std_weight:.4f}")
+        print(f"{'Precision':<20} | {avg_pre:.4f} ± {std_pre:.4f}     | {np.mean([x['weighted_precision'] for x in seed_metrics]):.4f} ± {np.std([x['weighted_precision'] for x in seed_metrics]):.4f}")
+        print(f"{'Recall':<20} | {avg_rec:.4f} ± {std_rec:.4f}     | {np.mean([x['weighted_recall'] for x in seed_metrics]):.4f} ± {np.std([x['weighted_recall'] for x in seed_metrics]):.4f}")
+        print(f"{'='*80}")
         
         all_results.append({
             "seed": seed,
@@ -267,12 +270,21 @@ def main():
     ov_rec = np.mean([x["macro_recall"] for x in all_folds_metrics])
     sd_rec = np.std([x["macro_recall"] for x in all_folds_metrics])
 
-    print("OVERALL FINAL METRICS (Mean ± Std) — SPARSEMAX:")
-    print(f"  F1-Macro         : {ov_mac:.4f} ± {sd_mac:.4f}")
-    print(f"  F1-Weighted      : {ov_wei:.4f} ± {sd_wei:.4f}")
-    print(f"  Accuracy         : {ov_acc:.4f} ± {sd_acc:.4f}")
-    print(f"  Precision-Macro  : {ov_pre:.4f} ± {sd_pre:.4f}")
-    print(f"  Recall-Macro     : {ov_rec:.4f} ± {sd_rec:.4f}")
+    ov_pre_w = np.mean([x["weighted_precision"] for x in all_folds_metrics])
+    sd_pre_w = np.std([x["weighted_precision"] for x in all_folds_metrics])
+    
+    ov_rec_w = np.mean([x["weighted_recall"] for x in all_folds_metrics])
+    sd_rec_w = np.std([x["weighted_recall"] for x in all_folds_metrics])
+
+    print("\nOVERALL FINAL METRICS (Mean ± Std) - SPARSEMAX:")
+    print(f"{'='*80}")
+    print(f"{'Metric':<20} | {'Macro':<25} | {'Weighted':<25}")
+    print(f"{'-'*80}")
+    print(f"{'Accuracy':<20} | {ov_acc:.4f} ± {sd_acc:.4f}     | {ov_acc:.4f} ± {sd_acc:.4f}")
+    print(f"{'F1-Score':<20} | {ov_mac:.4f} ± {sd_mac:.4f}     | {ov_wei:.4f} ± {sd_wei:.4f}")
+    print(f"{'Precision':<20} | {ov_pre:.4f} ± {sd_pre:.4f}     | {ov_pre_w:.4f} ± {sd_pre_w:.4f}")
+    print(f"{'Recall':<20} | {ov_rec:.4f} ± {sd_rec:.4f}     | {ov_rec_w:.4f} ± {sd_rec_w:.4f}")
+    print(f"{'='*80}")
     
     with open(args.save_path, "w") as f:
         json.dump(all_results, f, indent=2)

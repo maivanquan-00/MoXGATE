@@ -242,11 +242,17 @@ def train(args):
     subtype_names = ["CIN", "GS", "MSI", "HM-SNV", "EBV"]
     present_labels = sorted(np.unique(np.concatenate([test_targets, test_preds])))
     present_names  = [subtype_names[i] for i in present_labels]
-    print(f"\nTest Accuracy : {test_metrics['accuracy']:.4f}")
-    print(f"Test Precision: {test_metrics['precision']:.4f}")
-    print(f"Test Recall   : {test_metrics['recall']:.4f}")
-    print(f"Test Weighted F1: {test_metrics['weighted_f1']:.4f}")
-    print(f"Test Macro F1   : {test_metrics['macro_f1']:.4f}")
+    
+    print(f"\n{'='*75}")
+    print("  TEST SET METRICS (FINAL)")
+    print(f"{'='*75}")
+    print(f"{'Metric':<20} | {'Macro':<20} | {'Weighted':<20}")
+    print(f"{'-'*75}")
+    print(f"{'Accuracy':<20} | {test_metrics['accuracy']:.4f}         | {test_metrics['accuracy']:.4f}")
+    print(f"{'F1-Score':<20} | {test_metrics.get('macro_f1', 0.0):.4f}         | {test_metrics['weighted_f1']:.4f}")
+    print(f"{'Precision':<20} | {test_metrics.get('macro_precision', 0.0):.4f}         | {test_metrics['precision']:.4f}")
+    print(f"{'Recall':<20} | {test_metrics.get('macro_recall', 0.0):.4f}         | {test_metrics['recall']:.4f}")
+    print(f"{'='*75}")
     print(f"\nModality weights (final): {model.get_modality_weights()}")
     print(f"\nClassification Report:\n{classification_report(test_targets, test_preds, labels=present_labels, target_names=present_names, zero_division=0)}")
 

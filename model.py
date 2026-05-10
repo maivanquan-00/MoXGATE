@@ -343,7 +343,7 @@ class MoXGATE(nn.Module):
         targets: torch.Tensor,
         w:       torch.Tensor,
         lambda1: float = 0.01,
-        lambda2: float = 0.01,
+        lambda2: float = 1e-4,
     ):
         """
         Tính total loss: L = L_focal + λ1‖w - 1‖² + λ2‖W_c‖²_F

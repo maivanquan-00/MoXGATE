@@ -179,7 +179,10 @@ def parse_args():
     parser.add_argument("--lambda1", type=float, default=config.DEFAULT_LAMBDA1)
     parser.add_argument("--lambda2", type=float, default=config.DEFAULT_LAMBDA2)
     parser.add_argument("--test_ratio", type=float, default=config.DEFAULT_TEST_RATIO)
-    parser.add_argument("--val_ratio", type=float, default=config.DEFAULT_VAL_RATIO)
+    parser.add_argument(
+        "--val_ratio", type=float, default=0.08,
+        help="Validation fraction of the full dataset for stratified 80/20 runs; gi_paper uses train.py's 0.1 default.",
+    )
     parser.add_argument("--seed", type=int, default=config.DEFAULT_SEED)
     parser.add_argument("--multi_seed", action="store_true", help="Run legacy 3-seed mode for k-fold (15 runs)")
     parser.add_argument("--test_mode", action="store_true", help="Run quick kfold test mode")

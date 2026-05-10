@@ -17,6 +17,7 @@ import os
 import argparse
 import time
 import json
+import copy
 import numpy as np
 import pandas as pd
 import torch
@@ -86,21 +87,22 @@ def load_all_data(data_dir):
     dims = {
         "gene": X_gene.shape[1],
         "mirna": X_mirna.shape[1],
-        "methyl": X_methyl.shape[1]
+        "methyl": X_methyl.shape[1],
+        "num_classes": int(y.max()) + 1,
     }
     
-    print(f"[Data] Samples: {len(y)} | Gene_Dim: {dims['gene']} | MiRNA_Dim: {dims['mirna']} | Methyl_Dim: {dims['methyl']}")
+    print(f"[Data] Samples: {len(y)} | Classes: {dims['num_classes']} | Gene_Dim: {dims['gene']} | MiRNA_Dim: {dims['mirna']} | Methyl_Dim: {dims['methyl']}")
     return X_gene, X_mirna, X_methyl, y, dims
 
 @torch.no_grad()
-def evaluate(model, loader, device):
+def evaluate(model, loader, device, lambda1=0.01, lambda2=1e-4):
     model.eval()
     all_preds, all_targets, total_loss = [], [], 0.0
 
     for gene, mirna, methyl, labels in loader:
         gene, mirna, methyl, labels = gene.to(device), mirna.to(device), methyl.to(device), labels.to(device)
         logits, w = model(gene, mirna, methyl)
-        loss, _   = model.compute_loss(logits, labels, w)
+        loss, _   = model.compute_loss(logits, labels, w, lambda1=lambda1, lambda2=lambda2)
 
         total_loss += loss.item()
         preds = logits.argmax(dim=1).cpu().numpy()
@@ -144,7 +146,12 @@ def train_fold(seed, fold, train_idx, val_idx, test_idx, data, dims, args, devic
     torch.manual_seed(fold_seed)
     np.random.seed(fold_seed)
     
-    model = MoXGATE(gene_dim=dims["gene"], mirna_dim=dims["mirna"], methyl_dim=dims["methyl"]).to(device)
+    model = MoXGATE(
+        gene_dim=dims["gene"],
+        mirna_dim=dims["mirna"],
+        methyl_dim=dims["methyl"],
+        num_classes=dims["num_classes"],
+    ).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     
     best_val_loss = float("inf")
@@ -166,7 +173,11 @@ def train_fold(seed, fold, train_idx, val_idx, test_idx, data, dims, args, devic
             optimizer.step()
         
         train_loss /= len(train_loader)
-        val_metrics, _, _ = evaluate(model, val_loader, device)
+        val_metrics, _, _ = evaluate(
+            model, val_loader, device,
+            lambda1=args.lambda1,
+            lambda2=args.lambda2,
+        )
         epoch_logs.append({
             "epoch": epoch,
             "train_loss": train_loss,
@@ -176,7 +187,7 @@ def train_fold(seed, fold, train_idx, val_idx, test_idx, data, dims, args, devic
         
         if val_metrics["loss"] < best_val_loss:
             best_val_loss = val_metrics["loss"]
-            best_weights = model.state_dict()
+            best_weights = copy.deepcopy(model.state_dict())
             patience_counter = 0
         else:
             patience_counter += 1
@@ -185,7 +196,11 @@ def train_fold(seed, fold, train_idx, val_idx, test_idx, data, dims, args, devic
                 
     # 4. Evaluate Test Set
     model.load_state_dict(best_weights)
-    test_metrics, test_targets, test_preds = evaluate(model, test_loader, device)
+    test_metrics, test_targets, test_preds = evaluate(
+        model, test_loader, device,
+        lambda1=args.lambda1,
+        lambda2=args.lambda2,
+    )
     
     # Log: how many epochs trained, best val loss
     best_epoch = epoch_logs.index(min(epoch_logs, key=lambda x: x["val_loss"])) + 1 if epoch_logs else 1

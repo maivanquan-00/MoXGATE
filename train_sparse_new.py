@@ -34,13 +34,13 @@ def plot_confusion_matrix(y_true, y_pred, labels, save_path):
     except ImportError: pass
 
 @torch.no_grad()
-def evaluate(model, loader, device):
+def evaluate(model, loader, device, lambda1=0.01, lambda2=1e-4):
     model.eval()
     all_preds, all_targets, total_loss = [], [], 0.0
     for gene, mirna, methyl, labels in loader:
         gene, mirna, methyl, labels = gene.to(device), mirna.to(device), methyl.to(device), labels.to(device)
         logits, w = model(gene, mirna, methyl)
-        loss, _ = model.compute_loss(logits, labels, w)
+        loss, _ = model.compute_loss(logits, labels, w, lambda1=lambda1, lambda2=lambda2)
         total_loss += loss.item()
         preds = logits.argmax(dim=1).cpu().numpy()
         all_preds.extend(preds)
@@ -72,7 +72,8 @@ def train(args):
     )
 
     model = MoXGATESparse(gene_dim=dims["gene"], mirna_dim=dims["mirna"], methyl_dim=dims["methyl"]).to(device)
-    model.set_class_weights(class_weights) # Bật class weights cho GI imbalanced
+    if args.use_class_weights:
+        model.set_class_weights(class_weights)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=7)
@@ -93,7 +94,11 @@ def train(args):
             optimizer.step()
             epoch_loss += loss.item()
 
-        val_metrics, _, _ = evaluate(model, val_loader, device)
+        val_metrics, _, _ = evaluate(
+            model, val_loader, device,
+            lambda1=args.lambda1,
+            lambda2=args.lambda2,
+        )
         scheduler.step(val_metrics["loss"])
         w_dict = model.get_modality_weights()
         print(f"Epoch {epoch:3d} | Train Loss: {epoch_loss/len(train_loader):.4f} | Val Acc: {val_metrics['accuracy']:.4f} | Weights: G={w_dict['Gene']:.2f} M={w_dict['miRNA']:.2f} C={w_dict['Methylation']:.2f} | {time.time()-t0:.1f}s")
@@ -112,7 +117,11 @@ def train(args):
     # Final Test
     checkpoint = torch.load(os.path.join(args.save_dir, "best_model_sparse_gi_new.pt"), map_location=device)
     model.load_state_dict(checkpoint["model_state"])
-    test_metrics, test_preds, test_targets = evaluate(model, test_loader, device)
+    test_metrics, test_preds, test_targets = evaluate(
+        model, test_loader, device,
+        lambda1=args.lambda1,
+        lambda2=args.lambda2,
+    )
 
     present_labels = sorted(np.unique(np.concatenate([test_targets, test_preds])))
     present_names = [GI_SUBTYPE_NAMES[i] for i in present_labels]
@@ -154,8 +163,10 @@ def parse_args():
     parser.add_argument("--lambda2", type=float, default=1e-4)
     parser.add_argument("--patience", type=int, default=15)
     parser.add_argument("--test_ratio", type=float, default=0.2)
-    parser.add_argument("--val_ratio", type=float, default=0.1)
+    parser.add_argument("--val_ratio", type=float, default=0.08)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--use_class_weights", action="store_true",
+                        help="Use balanced per-class alpha in focal loss; paper default is alpha_i=1.")
     parser.add_argument("--runs", type=int, default=1, help="Số lần chạy lấy trung bình trên Colab")
     return parser.parse_args()
 

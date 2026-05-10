@@ -7,7 +7,7 @@ Thay đổi so với dataset.py bản gốc:
     - Gộp toàn bộ samples (COAD, READ, STAD, ESCA) vào một pool duy nhất.
     - Sử dụng StratifiedSplit (80% TrainVal, 20% Test) để đảm bảo tập test 
       đại diện đầy đủ cho các phân lớp hiếm (EBV, HM-SNV).
-    - Tự động hóa việc chia tỉ lệ Train/Val/Test (80/10/10).
+    - Validation lấy 10% từ phần TrainVal: Train/Val/Test xấp xỉ 72/8/20.
 """
 
 import os
@@ -63,12 +63,12 @@ class OmicsDataset(Dataset):
         return self.gene[i], self.mirna[i], self.methyl[i], self.labels[i]
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2. MODERNIZED SPLIT STRATEGY (80/10/10 Stratified)
+# 2. MODERNIZED SPLIT STRATEGY (80/20 Stratified, 10% trainval for val)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def split_data_new(labels: np.ndarray, test_ratio: float = 0.2, val_ratio: float = 0.1, seed: int = 42):
+def split_data_new(labels: np.ndarray, test_ratio: float = 0.2, val_ratio: float = 0.08, seed: int = 42):
     """
-    Chia 80/10/10 theo chiến lược Stratified Random (toàn bộ pool).
+    Chia 80/20 theo chiến lược Stratified Random, rồi lấy validation từ trainval.
     """
     np.random.seed(seed)
     all_idx = np.arange(len(labels))
@@ -78,7 +78,7 @@ def split_data_new(labels: np.ndarray, test_ratio: float = 0.2, val_ratio: float
     train_val_idx, test_idx = next(sss_test.split(all_idx, labels))
 
     # Stage 2: Tách Val set từ phần còn lại
-    # Nếu test=0.2, val=0.1 trên tổng -> val/train_val = 0.1 / 0.8 = 0.125
+    # Nếu test=0.2, val=0.08 trên tổng -> val/train_val = 0.08 / 0.8 = 0.10
     relative_val_ratio = val_ratio / (1.0 - test_ratio)
     sss_val = StratifiedShuffleSplit(n_splits=1, test_size=relative_val_ratio, random_state=seed)
     train_idx_rel, val_idx_rel = next(sss_val.split(train_val_idx, labels[train_val_idx]))
@@ -97,7 +97,7 @@ def build_dataloaders_new(
     data_dir:    str,
     batch_size:  int   = 32,
     test_ratio:  float = 0.2,
-    val_ratio:   float = 0.1,
+    val_ratio:   float = 0.08,
     seed:        int   = 42,
     num_workers: int   = 0,
 ):

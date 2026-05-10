@@ -42,7 +42,7 @@ from model   import MoXGATE
 # ─────────────────────────────────────────────────────────────────────────────
 
 @torch.no_grad()
-def evaluate(model, loader, device):
+def evaluate(model, loader, device, lambda1=0.01, lambda2=1e-4):
     """
     Chạy inference trên 1 DataLoader, trả về loss + metrics.
 
@@ -60,7 +60,7 @@ def evaluate(model, loader, device):
         labels = labels.to(device)
 
         logits, w = model(gene, mirna, methyl)
-        loss, _   = model.compute_loss(logits, labels, w)
+        loss, _   = model.compute_loss(logits, labels, w, lambda1=lambda1, lambda2=lambda2)
 
         total_loss += loss.item()
         preds = logits.argmax(dim=1).cpu().numpy()
@@ -176,7 +176,11 @@ def train(args):
             epoch_focal += focal.item()
 
         # ── Validation ────────────────────────────────────────────────────────
-        val_metrics, _, _ = evaluate(model, val_loader, device)
+        val_metrics, _, _ = evaluate(
+            model, val_loader, device,
+            lambda1=args.lambda1,
+            lambda2=args.lambda2,
+        )
         scheduler.step(val_metrics["loss"])
 
         avg_train_loss  = epoch_loss  / len(train_loader)
@@ -239,7 +243,11 @@ def train(args):
     checkpoint = torch.load(os.path.join(args.save_dir, "best_model.pt"), map_location=device)
     model.load_state_dict(checkpoint["model_state"])
 
-    test_metrics, test_preds, test_targets = evaluate(model, test_loader, device)
+    test_metrics, test_preds, test_targets = evaluate(
+        model, test_loader, device,
+        lambda1=args.lambda1,
+        lambda2=args.lambda2,
+    )
 
     subtype_names = ["CIN", "GS", "MSI", "HM-SNV", "EBV"]
     present_labels = sorted(np.unique(np.concatenate([test_targets, test_preds])))

@@ -73,10 +73,12 @@ def evaluate(model, loader, device):
     metrics = {
         "loss":      total_loss / len(loader),
         "accuracy":  accuracy_score(all_targets, all_preds),
-        "weighted_f1": f1_score(all_targets, all_preds, average="weighted", zero_division=0),
         "macro_f1":    f1_score(all_targets, all_preds, average="macro", zero_division=0),
-        "precision": precision_score(all_targets, all_preds, average="weighted", zero_division=0),
-        "recall":    recall_score(all_targets, all_preds, average="weighted", zero_division=0),
+        "weighted_f1": f1_score(all_targets, all_preds, average="weighted", zero_division=0),
+        "macro_precision":    precision_score(all_targets, all_preds, average="macro", zero_division=0),
+        "weighted_precision": precision_score(all_targets, all_preds, average="weighted", zero_division=0),
+        "macro_recall":       recall_score(all_targets, all_preds, average="macro", zero_division=0),
+        "weighted_recall":    recall_score(all_targets, all_preds, average="weighted", zero_division=0),
     }
     return metrics, all_preds, all_targets
 
@@ -249,9 +251,9 @@ def train(args):
     print(f"{'Metric':<20} | {'Macro':<25} | {'Weighted':<25}")
     print(f"{'-'*80}")
     print(f"{'Accuracy':<20} | {test_metrics['accuracy']:.4f}              | {test_metrics['accuracy']:.4f}")
-    print(f"{'F1-Score':<20} | {test_metrics.get('macro_f1', 0.0):.4f}              | {test_metrics['weighted_f1']:.4f}")
-    print(f"{'Precision':<20} | {test_metrics.get('macro_precision', 0.0):.4f}              | {test_metrics['precision']:.4f}")
-    print(f"{'Recall':<20} | {test_metrics.get('macro_recall', 0.0):.4f}              | {test_metrics['recall']:.4f}")
+    print(f"{'F1-Score':<20} | {test_metrics['macro_f1']:.4f}              | {test_metrics['weighted_f1']:.4f}")
+    print(f"{'Precision':<20} | {test_metrics['macro_precision']:.4f}              | {test_metrics['weighted_precision']:.4f}")
+    print(f"{'Recall':<20} | {test_metrics['macro_recall']:.4f}              | {test_metrics['weighted_recall']:.4f}")
     print(f"{'='*80}")
     print(f"\nModality weights (final): {model.get_modality_weights()}")
     print(f"\nClassification Report:\n{classification_report(test_targets, test_preds, labels=present_labels, target_names=present_names, zero_division=0)}")
@@ -263,7 +265,7 @@ def train(args):
 
     print(f"\n{'★'*80}")
     print(f"  HOÀN TẤT — Val Acc: {best_val_acc:.4f} | Test Acc: {test_metrics['accuracy']:.4f}")
-    print(f"              Test Macro F1: {test_metrics.get('macro_f1', 0.0):.4f} | Test Weighted F1: {test_metrics['weighted_f1']:.4f}")
+    print(f"              Test Macro F1: {test_metrics['macro_f1']:.4f} | Test Weighted F1: {test_metrics['weighted_f1']:.4f}")
     print(f"{'★'*80}")
     return test_metrics
 

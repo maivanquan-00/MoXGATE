@@ -86,11 +86,11 @@ Input: Gene (19k) + miRNA (1.8k) + Methylation (23k)
 
 **Paper Spec (Section 2.1.4):**
 ```
-L = L_focal + λ1‖w - 1/3‖² + λ2‖W_c‖²_F
+L = L_focal + λ1‖w - 1‖² + λ2‖W_c‖²_F
 
 - L_focal: Focal Loss (γ=2, α=1)
   → Xử lý class imbalance
-- λ1 term: Regularize modality weights toward uniform (1/3 each)
+- λ1 term: Regularize modality weights (code currently uses (w - 1)^2; paper/commented alternative was toward uniform 1/3 each)
 - λ2 term: Frobenius norm của cross-attention weight matrix
 ```
 

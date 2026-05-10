@@ -346,7 +346,7 @@ class MoXGATE(nn.Module):
         lambda2: float = 0.01,
     ):
         """
-        Tính total loss: L = L_focal + λ1‖w-1/3‖² + λ2‖W_c‖²_F
+        Tính total loss: L = L_focal + λ1‖w - 1‖² + λ2‖W_c‖²_F
 
         Args:
             logits:  (B, num_classes)
@@ -361,8 +361,7 @@ class MoXGATE(nn.Module):
         # Focal loss
         loss_focal = self.focal_loss(logits, targets)
 
-        # λ1: push modality weights toward uniform distribution (1/3 mỗi cái)
-        #loss_modality = lambda1 * torch.sum((w - 1.0 / 3) ** 2)
+        # λ1: regularize modality weights toward 1 (paper specification)
         loss_modality = lambda1 * torch.sum((w - 1.0) ** 2)
 
         # λ2: Frobenius norm trên in_proj_weight của cross-attention

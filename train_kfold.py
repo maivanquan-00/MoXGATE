@@ -57,7 +57,27 @@ def load_all_data(data_dir):
 
     # Đảm bảo index khớp
     assert list(gene.index) == list(mirna.index) == list(methyl.index) == list(labels.index), "Index mismatch!"
-    
+    # Sanity checks for common data problems (duplicates / identical rows)
+    if gene.index.duplicated().any():
+        print("[Warning] Duplicate Patient IDs found in final_gene.csv")
+    if mirna.index.duplicated().any():
+        print("[Warning] Duplicate Patient IDs found in final_mirna.csv")
+    if methyl.index.duplicated().any():
+        print("[Warning] Duplicate Patient IDs found in final_methylation.csv")
+
+    dup_gene_rows = int(gene.duplicated().sum())
+    dup_mirna_rows = int(mirna.duplicated().sum())
+    dup_methyl_rows = int(methyl.duplicated().sum())
+    if dup_gene_rows or dup_mirna_rows or dup_methyl_rows:
+        print(f"[Warning] Duplicate feature rows detected - gene:{dup_gene_rows}, mirna:{dup_mirna_rows}, methyl:{dup_methyl_rows}")
+
+    # Print label distribution for quick inspection
+    if "Target_Label" in labels.columns:
+        label_counts = labels["Target_Label"].value_counts().to_dict()
+        print(f"[Data] Label counts: {label_counts}")
+    else:
+        print("[Warning] final_labels.csv missing 'Target_Label' column")
+
     X_gene = gene.values.astype(np.float32)
     X_mirna = mirna.values.astype(np.float32)
     X_methyl = methyl.values.astype(np.float32)
@@ -119,9 +139,10 @@ def train_fold(seed, fold, train_idx, val_idx, test_idx, data, dims, args, devic
     val_loader   = DataLoader(OmicsDataset(X_g_scaled, X_mi_scaled, X_me_scaled, y, val_idx), batch_size=args.batch_size, shuffle=False)
     test_loader  = DataLoader(OmicsDataset(X_g_scaled, X_mi_scaled, X_me_scaled, y, test_idx), batch_size=args.batch_size, shuffle=False)
     
-    # 3. Model init (đặt seed cho torch trùng với seed param)
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    # 3. Model init (seed phải khác per-fold để tránh artificial perfect scores)
+    fold_seed = seed + fold * 1000  # Ensure different seed per fold
+    torch.manual_seed(fold_seed)
+    np.random.seed(fold_seed)
     
     model = MoXGATE(gene_dim=dims["gene"], mirna_dim=dims["mirna"], methyl_dim=dims["methyl"]).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
@@ -129,19 +150,29 @@ def train_fold(seed, fold, train_idx, val_idx, test_idx, data, dims, args, devic
     best_val_loss = float("inf")
     best_weights = None
     patience_counter = 0
+    epoch_logs = []
     
     for epoch in range(1, args.epochs + 1):
         model.train()
+        train_loss = 0.0
         for gene, mirna, methyl, labels in train_loader:
             gene, mirna, methyl, labels = gene.to(device), mirna.to(device), methyl.to(device), labels.to(device)
             optimizer.zero_grad()
             logits, w = model(gene, mirna, methyl)
             loss, _ = model.compute_loss(logits, labels, w, lambda1=args.lambda1, lambda2=args.lambda2)
+            train_loss += loss.item()
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
-            
+        
+        train_loss /= len(train_loader)
         val_metrics, _, _ = evaluate(model, val_loader, device)
+        epoch_logs.append({
+            "epoch": epoch,
+            "train_loss": train_loss,
+            "val_loss": val_metrics["loss"],
+            "patience": patience_counter
+        })
         
         if val_metrics["loss"] < best_val_loss:
             best_val_loss = val_metrics["loss"]
@@ -156,7 +187,10 @@ def train_fold(seed, fold, train_idx, val_idx, test_idx, data, dims, args, devic
     model.load_state_dict(best_weights)
     test_metrics, test_targets, test_preds = evaluate(model, test_loader, device)
     
-    return test_metrics
+    # Log: how many epochs trained, best val loss
+    best_epoch = epoch_logs.index(min(epoch_logs, key=lambda x: x["val_loss"])) + 1 if epoch_logs else 1
+    
+    return test_metrics, best_epoch, len(epoch_logs)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -206,10 +240,24 @@ def main():
             
             train_idx = train_val_idx[train_rel_idx]
             val_idx   = train_val_idx[val_rel_idx]
-            
-            test_metrics = train_fold(seed, fold, train_idx, val_idx, test_idx, data_tuple[:-1], dims, args, device)
+            # Sanity checks: ensure splits are disjoint and print label distributions
+            if len(set(train_idx).intersection(set(test_idx))) != 0:
+                raise AssertionError("Train/Test overlap detected!")
+            if len(set(train_idx).intersection(set(val_idx))) != 0:
+                raise AssertionError("Train/Val overlap detected!")
+            if len(set(val_idx).intersection(set(test_idx))) != 0:
+                raise AssertionError("Val/Test overlap detected!")
+
+            try:
+                print(f"    Labels — train: {np.bincount(y[train_idx])}, val: {np.bincount(y[val_idx])}, test: {np.bincount(y[test_idx])}")
+            except Exception:
+                # Fallback if labels are not small integers starting at 0
+                print(f"    Labels sizes — train: {len(train_idx)}, val: {len(val_idx)}, test: {len(test_idx)}")
+
+            test_metrics, best_epoch, total_epochs = train_fold(seed, fold, train_idx, val_idx, test_idx, data_tuple[:-1], dims, args, device)
             
             print(f"Test F1-Macro: {test_metrics['macro_f1']:.4f} | F1-Weighted: {test_metrics['weighted_f1']:.4f} | Accuracy: {test_metrics['accuracy']:.4f} | Precision-Macro: {test_metrics['macro_precision']:.4f} | Recall-Macro: {test_metrics['macro_recall']:.4f}")
+            print(f"    Training stopped at epoch {best_epoch}/{total_epochs}")
             seed_metrics.append(test_metrics)
             
             if args.test_mode:  # Dành cho user check code 1-2 fold (tiết kiệm compute)

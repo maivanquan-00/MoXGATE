@@ -116,8 +116,8 @@ def run_kfold_softmax(args, dataset: str):
         "--lambda2", str(args.lambda2),
         "--seed", str(args.seed),
     ]
-    if args.multi_seed:
-        cmd.append("--multi_seed")
+    if args.single_seed:
+        cmd.append("--single_seed")
     if args.test_mode:
         cmd.append("--test_mode")
     _run(cmd)
@@ -139,8 +139,8 @@ def run_kfold_sparsemax(args, dataset: str):
         "--lambda2", str(args.lambda2),
         "--seed", str(args.seed),
     ]
-    if args.multi_seed:
-        cmd.append("--multi_seed")
+    if args.single_seed:
+        cmd.append("--single_seed")
     if args.test_mode:
         cmd.append("--test_mode")
     _run(cmd)
@@ -184,7 +184,7 @@ def parse_args():
         help="Validation fraction of the full dataset for stratified 80/20 runs; gi_paper uses train.py's 0.1 default.",
     )
     parser.add_argument("--seed", type=int, default=config.DEFAULT_SEED)
-    parser.add_argument("--multi_seed", action="store_true", help="Run legacy 3-seed mode for k-fold (15 runs)")
+    parser.add_argument("--single_seed", action="store_true", help="Run only 1 seed (default: run 3 seeds 42, 123, 2024 for k-fold)")
     parser.add_argument("--test_mode", action="store_true", help="Run quick kfold test mode")
     return parser.parse_args()
 

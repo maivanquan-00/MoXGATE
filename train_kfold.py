@@ -218,8 +218,8 @@ def main():
     parser.add_argument("--lambda1", type=float, default=0.01)
     parser.add_argument("--lambda2", type=float, default=1e-4)
     parser.add_argument("--patience", type=int, default=15)
-    parser.add_argument("--seed", type=int, default=config.DEFAULT_SEED, help="Seed for 5-fold split and training")
-    parser.add_argument("--multi_seed", action="store_true", help="Run legacy 3-seed mode (42, 123, 2024)")
+    parser.add_argument("--seed", type=int, default=config.DEFAULT_SEED, help="Seed for 5-fold split and training (only used with --single_seed)")
+    parser.add_argument("--single_seed", action="store_true", help="Run only 1 seed (default: run 3 seeds 42, 123, 2024)")
     parser.add_argument("--test_mode", action="store_true", help="Chạy 1 fold cho mục đích test code nhanh")
     args = parser.parse_args()
     
@@ -236,7 +236,7 @@ def main():
     data_tuple = load_all_data(args.data_dir)
     _, _, _, y, dims = data_tuple
     
-    seeds = [42, 123, 2024] if args.multi_seed else [args.seed]
+    seeds = [args.seed] if args.single_seed else [42, 123, 2024]
     print(f"[Run Mode] Seeds: {seeds}")
     all_results = []
     

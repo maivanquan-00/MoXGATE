@@ -184,12 +184,12 @@ LGG_CHECKPOINT_DIR  = os.path.join(BASE_DIR, "checkpoints_lgg")
 # ══════════════════════════════════════════════════════════════════
 
 DEFAULT_BATCH_SIZE   = 32
-DEFAULT_EPOCHS       = 100
+DEFAULT_EPOCHS       = 200      # Tăng từ 100 để model có đủ thời gian hội tụ
 DEFAULT_LR           = 1e-4
 DEFAULT_WEIGHT_DECAY = 1e-2
 DEFAULT_LAMBDA1      = 0.01
 DEFAULT_LAMBDA2      = 1e-4
-DEFAULT_PATIENCE     = 15
+DEFAULT_PATIENCE     = 25       # Tăng từ 15 để tránh early stop sớm
 DEFAULT_VAL_RATIO    = 0.1
 DEFAULT_TEST_RATIO   = 0.2
 DEFAULT_SEED         = 42

@@ -136,14 +136,16 @@ def train(args):
         weight_decay=args.weight_decay,
     )
 
-    # LR scheduler: giảm LR khi val loss không cải thiện
+    # LR scheduler: giảm LR khi val loss không cải thiện (nới rộng patience)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=7
+        optimizer, mode="min", factor=0.5, patience=10
     )
 
     # ── Training loop ─────────────────────────────────────────────────────────
-    best_val_loss   = float("inf")
+    # Best checkpoint chọn theo Weighted F1 (đúng metric paper báo cáo)
+    best_val_wf1    = 0.0
     best_val_acc    = 0.0
+    best_val_loss   = float("inf")
     patience_counter = 0
     history         = []
 
@@ -168,8 +170,8 @@ def train(args):
             )
             loss.backward()
 
-            # Gradient clipping để tránh exploding gradients
-            nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            # Gradient clipping nới rộng (paper không yêu cầu — chỉ phòng exploding)
+            nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
 
             optimizer.step()
             epoch_loss  += loss.item()
@@ -208,8 +210,9 @@ def train(args):
             **{f"w_{k}": v for k, v in w_dict.items()},
         })
 
-        # ── Checkpoint tốt nhất (theo val accuracy) ───────────────────────────
-        if val_metrics["accuracy"] > best_val_acc:
+        # ── Checkpoint tốt nhất (theo val Weighted F1 — metric paper báo cáo) ──
+        if val_metrics["weighted_f1"] > best_val_wf1:
+            best_val_wf1  = val_metrics["weighted_f1"]
             best_val_acc  = val_metrics["accuracy"]
             best_val_loss = val_metrics["loss"]
             patience_counter = 0
@@ -217,12 +220,13 @@ def train(args):
                 "epoch":       epoch,
                 "model_state": model.state_dict(),
                 "optimizer_state": optimizer.state_dict(),
+                "val_wf1":     best_val_wf1,
                 "val_acc":     best_val_acc,
                 "val_loss":    best_val_loss,
                 "config":      model.config,
                 "dims":        dims,
             }, os.path.join(args.save_dir, "best_model.pt"))
-            print(f"  ✓ Saved best model (val_acc={best_val_acc:.4f})")
+            print(f"  ✓ Saved best model (val_wf1={best_val_wf1:.4f}, val_acc={best_val_acc:.4f})")
         else:
             patience_counter += 1
             if patience_counter >= args.patience:
@@ -272,8 +276,9 @@ def train(args):
         json.dump(test_results, f, indent=2)
 
     print(f"\n{'★'*80}")
-    print(f"  HOÀN TẤT — Val Acc: {best_val_acc:.4f} | Test Acc: {test_metrics['accuracy']:.4f}")
-    print(f"              Test Macro F1: {test_metrics['macro_f1']:.4f} | Test Weighted F1: {test_metrics['weighted_f1']:.4f}")
+    print(f"  HOÀN TẤT — Val W-F1: {best_val_wf1:.4f} | Val Acc: {best_val_acc:.4f}")
+    print(f"              Test Acc: {test_metrics['accuracy']:.4f} | Test Weighted F1: {test_metrics['weighted_f1']:.4f}")
+    print(f"              Test Macro F1: {test_metrics['macro_f1']:.4f}")
     print(f"{'★'*80}")
     return test_metrics
 

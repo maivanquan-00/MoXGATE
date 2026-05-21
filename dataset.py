@@ -248,12 +248,14 @@ def build_dataloaders(
         train_ds, batch_size=batch_size, shuffle=True,
         num_workers=num_workers, pin_memory=True,
     )
+    # Eval batch_size phải khớp train (=batch_size) vì self-attention là cross-sample.
+    # Nếu eval full-batch (79 sample ESCA toàn CIN) → distribution shift so với train batch=32 mix subtype.
     val_loader = DataLoader(
-        val_ds, batch_size=len(val_ds), shuffle=False,
+        val_ds, batch_size=batch_size, shuffle=False,
         num_workers=num_workers, pin_memory=True,
     )
     test_loader = DataLoader(
-        test_ds, batch_size=len(test_ds), shuffle=False,
+        test_ds, batch_size=batch_size, shuffle=False,
         num_workers=num_workers, pin_memory=True,
     )
 

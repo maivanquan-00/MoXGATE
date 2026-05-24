@@ -49,7 +49,13 @@ class OmicsDataset(Dataset):
     def __getitem__(self, idx):
         return self.gene[idx], self.mirna[idx], self.methyl[idx], self.labels[idx]
 
-def load_all_data(data_dir):
+def load_all_data(data_dir, include_cancers=None, exclude_subtypes=None):
+    """
+    Đọc 4 file final_*.csv. Hỗ trợ lọc inline để tạo subset mà KHÔNG cần tạo folder riêng:
+        include_cancers:  list Cancer_Type giữ lại (vd: ['STAD']). None = giữ tất cả.
+        exclude_subtypes: list Subtype loại bỏ   (vd: ['HM-SNV']). None = giữ tất cả.
+    Sau khi lọc, Target_Label được re-index về 0..K-1 contiguous để khớp classifier MoXGATE.
+    """
     print(f"\n[Data] Loading from: {data_dir}")
     gene   = pd.read_csv(os.path.join(data_dir, "final_gene.csv"), index_col=0)
     mirna  = pd.read_csv(os.path.join(data_dir, "final_mirna.csv"), index_col=0)
@@ -72,10 +78,45 @@ def load_all_data(data_dir):
     if dup_gene_rows or dup_mirna_rows or dup_methyl_rows:
         print(f"[Warning] Duplicate feature rows detected - gene:{dup_gene_rows}, mirna:{dup_mirna_rows}, methyl:{dup_methyl_rows}")
 
+    # ── Lọc subset inline ────────────────────────────────────────────────
+    if include_cancers or exclude_subtypes:
+        n_before = len(labels)
+        mask = pd.Series(True, index=labels.index)
+        if include_cancers:
+            if "Cancer_Type" not in labels.columns:
+                raise ValueError("--include_cancers cần cột 'Cancer_Type' trong final_labels.csv")
+            mask &= labels["Cancer_Type"].isin(include_cancers)
+            print(f"[Data] Filter --include_cancers {include_cancers}: {mask.sum()} samples")
+        if exclude_subtypes:
+            if "Subtype" not in labels.columns:
+                raise ValueError("--exclude_subtypes cần cột 'Subtype' trong final_labels.csv")
+            mask &= ~labels["Subtype"].isin(exclude_subtypes)
+            print(f"[Data] Filter --exclude_subtypes {exclude_subtypes}: {mask.sum()} samples")
+
+        if mask.sum() == 0:
+            raise ValueError("Filter làm rỗng dataset. Kiểm tra lại --include_cancers / --exclude_subtypes.")
+
+        gene   = gene[mask]
+        mirna  = mirna[mask]
+        methyl = methyl[mask]
+        labels = labels[mask]
+
+        # Re-index Target_Label về 0..K-1 contiguous (cần thiết cho MoXGATE classifier)
+        old_sorted = sorted(labels["Target_Label"].unique())
+        if old_sorted != list(range(len(old_sorted))):
+            remap = {old: new for new, old in enumerate(old_sorted)}
+            labels["Target_Label"] = labels["Target_Label"].map(remap)
+            print(f"[Data] Re-index Target_Label: {remap}")
+
+        print(f"[Data] Subset: {n_before} → {len(labels)} samples")
+
     # Print label distribution for quick inspection
     if "Target_Label" in labels.columns:
-        label_counts = labels["Target_Label"].value_counts().to_dict()
+        label_counts = labels["Target_Label"].value_counts().sort_index().to_dict()
         print(f"[Data] Label counts: {label_counts}")
+        if "Subtype" in labels.columns:
+            subtype_map = labels.groupby("Target_Label")["Subtype"].first().to_dict()
+            print(f"[Data] Label -> Subtype: {subtype_map}")
     else:
         print("[Warning] final_labels.csv missing 'Target_Label' column")
 
@@ -83,14 +124,14 @@ def load_all_data(data_dir):
     X_mirna = mirna.values.astype(np.float32)
     X_methyl = methyl.values.astype(np.float32)
     y = labels["Target_Label"].values.astype(np.int64)
-    
+
     dims = {
         "gene": X_gene.shape[1],
         "mirna": X_mirna.shape[1],
         "methyl": X_methyl.shape[1],
         "num_classes": int(y.max()) + 1,
     }
-    
+
     print(f"[Data] Samples: {len(y)} | Classes: {dims['num_classes']} | Gene_Dim: {dims['gene']} | MiRNA_Dim: {dims['mirna']} | Methyl_Dim: {dims['methyl']}")
     return X_gene, X_mirna, X_methyl, y, dims
 
@@ -221,6 +262,11 @@ def main():
     parser.add_argument("--seed", type=int, default=config.DEFAULT_SEED, help="Seed for 5-fold split and training (only used with --single_seed)")
     parser.add_argument("--single_seed", action="store_true", help="Run only 1 seed (default: run 3 seeds 42, 123, 2024)")
     parser.add_argument("--test_mode", action="store_true", help="Chạy 1 fold cho mục đích test code nhanh")
+    # Lọc subset inline (không cần tạo folder data riêng)
+    parser.add_argument("--include_cancers", nargs="+", default=None,
+                        help="Chỉ giữ các Cancer_Type này (vd: STAD). Lọc trên data_dir gốc.")
+    parser.add_argument("--exclude_subtypes", nargs="+", default=None,
+                        help="Loại các Subtype này (vd: HM-SNV Normal). Lọc trên data_dir gốc.")
     args = parser.parse_args()
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -232,8 +278,12 @@ def main():
     if not os.path.isabs(args.save_path):
         args.save_path = os.path.join(config.BASE_DIR, args.save_path)
 
-    # Load dataset gộp cứng (GIAC, BRCA, KIPAN...) như nhau
-    data_tuple = load_all_data(args.data_dir)
+    # Load dataset (có thể lọc subset inline qua --include_cancers / --exclude_subtypes)
+    data_tuple = load_all_data(
+        args.data_dir,
+        include_cancers=args.include_cancers,
+        exclude_subtypes=args.exclude_subtypes,
+    )
     _, _, _, y, dims = data_tuple
     
     seeds = [args.seed] if args.single_seed else [42, 123, 2024]

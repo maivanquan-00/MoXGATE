@@ -10,7 +10,9 @@
       "Bash(python \"d:/ĐATN/MoXGATE/make_subset.py\" --input \"d:/ĐATN/MoXGATE/data_final\" --output \"d:/ĐATN/MoXGATE/data_final_stad_no_hmsnv\" --include_cancers STAD --exclude_subtypes HM-SNV)",
       "Bash(git reset *)",
       "Bash(git restore *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m 'Add make_subset.py for creating dataset subsets *)",
+      "Bash(git check-ignore *)"
     ]
   }
 }

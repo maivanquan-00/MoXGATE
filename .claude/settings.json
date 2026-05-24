@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(python make_subset.py --input data_final --output /tmp/test_gi_no_hmsnv --exclude_subtypes HM-SNV)",
+      "Bash(wait)",
+      "Bash(python make_subset.py --input data_final --output data_final_gi_no_hmsnv --exclude_subtypes HM-SNV)",
+      "Bash(python \"d:/ĐATN/MoXGATE/make_subset.py\" --input \"d:/ĐATN/MoXGATE/data_final_brca\" --output \"d:/ĐATN/MoXGATE/data_final_brca_no_normal\" --exclude_subtypes Normal)",
+      "Bash(python \"d:/ĐATN/MoXGATE/make_subset.py\" --input \"d:/ĐATN/MoXGATE/data_final\" --output \"d:/ĐATN/MoXGATE/data_final_stad\" --include_cancers STAD)",
+      "Bash(python \"d:/ĐATN/MoXGATE/make_subset.py\" --input \"d:/ĐATN/MoXGATE/data_final\" --output \"d:/ĐATN/MoXGATE/data_final_stad_no_hmsnv\" --include_cancers STAD --exclude_subtypes HM-SNV)",
+      "Bash(git reset *)",
+      "Bash(git restore *)",
+      "Bash(git add *)"
     ]
   }
 }

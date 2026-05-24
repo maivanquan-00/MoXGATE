@@ -8,3 +8,7 @@ data_final_brca/
 data_final_kipan/
 data_final_ucec/
 data_final_lgg/
+data_final_gi_no_hmsnv/
+data_final_brca_no_normal/
+data_final_stad/
+data_final_stad_no_hmsnv/
